@@ -21,6 +21,8 @@ CREATE DATABASE IF NOT EXISTS \`baroseller\` CHARACTER SET utf8mb4 COLLATE utf8m
 CREATE DATABASE IF NOT EXISTS \`barobuyer\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 CREATE DATABASE IF NOT EXISTS \`baroorder\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 CREATE DATABASE IF NOT EXISTS \`barosupport\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+CREATE DATABASE IF NOT EXISTS \`baropayment\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+CREATE DATABASE IF NOT EXISTS \`barosettlement\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 -- barouser에게 모든 데이터베이스에 대한 모든 권한 부여
 GRANT ALL PRIVILEGES ON \`baroauth\`.* TO 'barouser'@'%';
@@ -28,6 +30,8 @@ GRANT ALL PRIVILEGES ON \`baroseller\`.* TO 'barouser'@'%';
 GRANT ALL PRIVILEGES ON \`barobuyer\`.* TO 'barouser'@'%';
 GRANT ALL PRIVILEGES ON \`baroorder\`.* TO 'barouser'@'%';
 GRANT ALL PRIVILEGES ON \`barosupport\`.* TO 'barouser'@'%';
+GRANT ALL PRIVILEGES ON \`baropayment\`.* TO 'barouser'@'%';
+GRANT ALL PRIVILEGES ON \`barosettlement\`.* TO 'barouser'@'%';
 
 -- localhost에서도 접속 가능하도록 권한 부여
 GRANT ALL PRIVILEGES ON \`baroauth\`.* TO 'barouser'@'localhost';
@@ -35,10 +39,11 @@ GRANT ALL PRIVILEGES ON \`baroseller\`.* TO 'barouser'@'localhost';
 GRANT ALL PRIVILEGES ON \`barobuyer\`.* TO 'barouser'@'localhost';
 GRANT ALL PRIVILEGES ON \`baroorder\`.* TO 'barouser'@'localhost';
 GRANT ALL PRIVILEGES ON \`barosupport\`.* TO 'barouser'@'localhost';
+GRANT ALL PRIVILEGES ON \`baropayment\`.* TO 'barouser'@'localhost';
+GRANT ALL PRIVILEGES ON \`barosettlement\`.* TO 'barouser'@'localhost';
 
 -- 권한 변경사항 즉시 적용
 FLUSH PRIVILEGES;
 EOF
 
 echo "Database initialization completed."
-

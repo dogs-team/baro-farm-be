@@ -28,7 +28,6 @@ services:
       dockerfile: docker/gateway/Dockerfile
     environment:
       - SPRING_PROFILES_ACTIVE=local
-      - SPRING_CONFIG_IMPORT=
       - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka:8761/eureka/
       - REDIS_HOST=baro-redis
       - SPRING_DATA_REDIS_PASSWORD=${REDIS_PASSWORD:-redis123}
@@ -51,9 +50,9 @@ services:
     mem_limit: 512m
     environment:
       - SPRING_PROFILES_ACTIVE=local
-      - SPRING_CONFIG_IMPORT=
       - BPL_JVM_THREAD_COUNT=50
-      - SPRING_KAFKA_BOOTSTRAP_SERVERS=baro-kafka:29092
+      - SPRING_KAFKA_BOOTSTRAP_SERVERS=baro-kafka:9092
+      - EUREKA_CLIENT_ENABLED=false
       - OPA_BUNDLE_DIR=/tmp/opa-bundle
       - OPA_POLICY_DIR=/app/policy
   opa:

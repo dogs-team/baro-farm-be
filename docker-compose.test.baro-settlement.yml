@@ -11,14 +11,21 @@ services:
       - "8090:8090"
     environment:
       - SPRING_PROFILES_ACTIVE=local
-      - SPRING_CONFIG_IMPORT=
+      - "SPRING_CONFIG_IMPORT=optional:configserver:"
       - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka:8761/eureka/
-      - SPRING_KAFKA_BOOTSTRAP_SERVERS=baro-kafka:29092
+      - SPRING_KAFKA_BOOTSTRAP_SERVERS=baro-kafka:9092
+      - SPRING_MAIN_ALLOW_BEAN_DEFINITION_OVERRIDING=true
       - SPRING_DATASOURCE_URL=jdbc:mysql://baro-mysql:3306/${MYSQL_DATABASE_SETTLEMENT:-barosettlement}
+      - SPRING_DATASOURCE_USERNAME=${MYSQL_USER}
+      - SPRING_DATASOURCE_PASSWORD=${MYSQL_PASSWORD}
       - MYSQL_DATABASE=${MYSQL_DATABASE_SETTLEMENT:-barosettlement}
       - MYSQL_USER=${MYSQL_USER}
       - MYSQL_PASSWORD=${MYSQL_PASSWORD}
       - SETTLEMENT_SCHEDULER_ENABLED=false
+      - SPRING_TASK_SCHEDULING_CRON_SETTLEMENT=0 0 0 1 * ?
+      - API_V1=/api/v1
+      - EUREKA_CLIENT_ENABLED=false
+      - SERVER_PORT=8090
       - JAVA_OPTS=-Xms64m -Xmx128m
     volumes: []
     restart: unless-stopped

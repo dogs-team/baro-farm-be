@@ -18,6 +18,7 @@ import org.springframework.cloud.gateway.filter.GatewayFilter;
 import org.springframework.cloud.gateway.filter.factory.AbstractGatewayFilterFactory;
 import org.springframework.cloud.gateway.route.Route;
 import org.springframework.cloud.gateway.support.ServerWebExchangeUtils;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.server.reactive.ServerHttpResponse;
@@ -67,6 +68,13 @@ public class OpaAuthorizationGatewayFilterFactory
     @Override
     public GatewayFilter apply(Config config) {
         return (exchange, chain) -> {
+            if (HttpMethod.OPTIONS.equals(exchange.getRequest().getMethod())) {
+                return chain.filter(exchange);
+            }
+            String path = exchange.getRequest().getPath().value();
+            if (isPublicAuthPath(path)) {
+                return chain.filter(exchange);
+            }
             Map<String, Object> input = buildInput(exchange);
             if (LOG.isDebugEnabled()) {
                 LOG.debug("OPA input: {}", input);
@@ -101,6 +109,12 @@ public class OpaAuthorizationGatewayFilterFactory
                     return deny(exchange, HttpStatus.SERVICE_UNAVAILABLE);
                 });
         };
+    }
+
+    private boolean isPublicAuthPath(String path) {
+        return "/auth-service/api/v1/auth/login".equals(path)
+            || "/auth-service/api/v1/auth/signup".equals(path)
+            || "/auth-service/api/v1/auth/refresh".equals(path);
     }
 
     private Map<String, Object> buildInput(ServerWebExchange exchange) {

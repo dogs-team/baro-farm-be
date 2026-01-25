@@ -5,9 +5,11 @@ services:
       dockerfile: docker/baro-support/Dockerfile
     environment:
       - SPRING_PROFILES_ACTIVE=local
-      - SPRING_CONFIG_IMPORT=
       - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka:8761/eureka/
-      - SPRING_KAFKA_BOOTSTRAP_SERVERS=baro-kafka:29092
+      - EUREKA_CLIENT_ENABLED=true
+      - EUREKA_CLIENT_REGISTER_WITH_EUREKA=true
+      - EUREKA_CLIENT_FETCH_REGISTRY=true
+      - SPRING_KAFKA_BOOTSTRAP_SERVERS=baro-kafka:9092
       - SPRING_DATASOURCE_URL=jdbc:mysql://baro-mysql:3306/${MYSQL_DATABASE_SUPPORT:-barosupport}
       - SPRING_DATASOURCE_USERNAME=${MYSQL_USER}
       - SPRING_DATASOURCE_PASSWORD=${MYSQL_PASSWORD}

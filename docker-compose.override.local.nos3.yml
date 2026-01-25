@@ -1,27 +1,39 @@
+x-s3-dummy: &s3_dummy
+  - s3_dummy:/mnt/s3
+
 services:
   redis:
-    volumes: []
+    volumes: *s3_dummy
+  mysql:
+    volumes: *s3_dummy
   kafka:
-    volumes: []
+    volumes: *s3_dummy
   elasticsearch:
-    volumes: []
+    volumes: *s3_dummy
   eureka:
-    volumes: []
+    volumes: *s3_dummy
+  config:
+    volumes: *s3_dummy
   gateway:
-    volumes: []
+    volumes: *s3_dummy
   opa:
-    volumes: []
+    volumes: *s3_dummy
   opa-bundle:
-    volumes: []
+    volumes: *s3_dummy
+  baro-auth:
+    volumes: *s3_dummy
   baro-ai:
-    volumes: []
+    volumes: *s3_dummy
   baro-buyer:
-    volumes: []
+    volumes: *s3_dummy
   baro-seller:
-    volumes: []
+    volumes: *s3_dummy
   baro-order:
-    volumes: []
+    volumes: *s3_dummy
   baro-payment:
-    volumes: []
+    volumes: *s3_dummy
   baro-support:
-    volumes: []
+    volumes: *s3_dummy
+
+volumes:
+  s3_dummy: {}

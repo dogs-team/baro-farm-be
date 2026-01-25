@@ -68,7 +68,10 @@ spring:
               '[/**]': # 모든 경로에 대해 CORS 허용
                 allowedOrigins:
                   - ${GATEWAY_ALLOWED_ORIGIN_0:http://localhost:3000}
-                  - ${GATEWAY_ALLOWED_ORIGIN_1:http://3.34.14.73:3000}
+                  - ${GATEWAY_ALLOWED_ORIGIN_1:http://127.0.0.1:3000}
+                  - ${GATEWAY_ALLOWED_ORIGIN_2:http://127.0.0.1:3001}
+                  - ${GATEWAY_ALLOWED_ORIGIN_3:http://192.168.10.80:3000}
+                  - ${GATEWAY_ALLOWED_ORIGIN_4:http://3.34.14.73:3000}
                 allowedMethods: "*"   # 허용 HTTP 메서드 (GET/POST/PUT/DELETE 등)
                 allowedHeaders: "*"   # 허용 요청 헤더 (Authorization 등)
                 allowCredentials: true # 쿠키/인증 헤더 전달 허용 시 true
@@ -144,8 +147,17 @@ spring:
             # 일반 API 서비스 라우트
             # ============================================
             # Auth Service
+            - id: auth-service-public
+              uri: lb://auth-service
+              order: -100
+              predicates:
+                - Path=/auth-service/api/v1/auth/**
+              filters:
+                - RewritePath=/auth-service/(?<segment>.*), /${segment}
+
             - id: auth-service
               uri: lb://auth-service
+              order: 0
               predicates:
                 - Path=/auth-service/**
               filters:

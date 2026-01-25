@@ -7,7 +7,10 @@ services:
       - SPRING_PROFILES_ACTIVE=local
       # Use application.yml defaults; empty value breaks list-based imports.
       - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka:8761/eureka/
-      - SPRING_KAFKA_BOOTSTRAP_SERVERS=baro-kafka:29092
+      - EUREKA_CLIENT_ENABLED=true
+      - EUREKA_CLIENT_REGISTER_WITH_EUREKA=true
+      - EUREKA_CLIENT_FETCH_REGISTRY=true
+      - SPRING_KAFKA_BOOTSTRAP_SERVERS=baro-kafka:9092
       - SPRING_ELASTICSEARCH_URIS=http://elasticsearch:9200
       - SPRING_AI_OPENAI_API_KEY=${SPRING_AI_OPENAI_API_KEY}
       - SPRING_AI_OPENAI_MODEL=${SPRING_AI_OPENAI_MODEL}
