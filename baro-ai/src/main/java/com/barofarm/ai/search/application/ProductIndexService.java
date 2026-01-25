@@ -50,7 +50,9 @@ public class ProductIndexService {
             new ProductDocument(
                 request.productId(),
                 request.productName(),
-                request.productCategory(),
+                request.productCategoryId(),
+                request.productCategoryCode(),
+                request.productCategoryName(),
                 request.price(),
                 request.status(),
                 Instant.now(),

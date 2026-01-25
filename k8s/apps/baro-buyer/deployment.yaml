@@ -60,8 +60,6 @@ spec:
               value: "optional:configserver:http://localhost:8888"  # 배포 스크립트가 자동으로 Data EC2 IP로 치환 (Cloud 모듈이 Data EC2에서 실행됨)
             - name: EUREKA_CLIENT_SERVICEURL_DEFAULTZONE
               value: "http://localhost:8761/eureka/"  # 배포 스크립트가 자동으로 Data EC2 IP로 치환 (Cloud 모듈이 Data EC2에서 실행됨) 
-            - name: JAVA_OPTS
-              value: "-Xms64m -Xmx144m"
             - name: JAVA_TOOL_OPTIONS
               value: >
                 -Duser.timezone=Asia/Seoul
@@ -133,13 +131,13 @@ spec:
           volumeMounts:
             - name: log-volume
               mountPath: /mnt/s3/logs/buyer
-          resources:
-            requests:
-              cpu: "100m"
-              memory: "384Mi"
-            limits:
-              cpu: "500m"
-              memory: "640Mi"  # 힙(256MB) + Metaspace(256MB) + 오버헤드(128MB)
+          # resources:
+          #   requests:
+          #     cpu: "100m"
+          #     memory: "384Mi"
+          #   limits:
+          #     cpu: "500m"
+          #     memory: "512Mi"  # 힙(128MB) + Metaspace(144MB) + CodeCache(24MB) + DirectMemory(32MB) + 기타오버헤드(~184MB)
           livenessProbe:
             httpGet:
               path: /actuator/health

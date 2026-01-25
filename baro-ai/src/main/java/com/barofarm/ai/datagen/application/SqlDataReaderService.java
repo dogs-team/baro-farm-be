@@ -13,18 +13,12 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Service;
 
-/**
- * SQL 파일에서 상품 데이터를 읽어오는 서비스
- */
+// SQL 파일에서 상품 데이터를 읽어오는 서비스
 @Slf4j
 @Service
 public class SqlDataReaderService {
 
-    private static final String[] VALID_CATEGORIES = {"FRUIT", "VEGETABLE", "GRAIN", "NUT", "ROOT", "MUSHROOM", "ETC"};
-
-    /**
-     * SQL 파일에서 상품 데이터를 파싱하여 ProductGenerationDto 리스트로 반환
-     */
+    // SQL 파일에서 상품 데이터를 파싱하여 ProductGenerationDto 리스트로 반환
     public List<ProductGenerationDto> readProductsFromSql(String sqlFilePath) throws IOException {
         log.info("SQL 파일에서 상품 데이터 읽기 시작: {}", sqlFilePath);
 
@@ -49,35 +43,46 @@ public class SqlDataReaderService {
     private List<ProductGenerationDto> parseSqlContent(String content) {
         List<ProductGenerationDto> products = new ArrayList<>();
 
-        // INSERT 문 패턴 매칭 (Python 스크립트의 정규식과 동일)
-        String regex = "INSERT INTO `product`.*?VALUES\\s*\\(uuid_to_bin\\('([^']+)'\\),\\s*"
-            + "uuid_to_bin\\('([^']+)'\\),\\s*'([^']+)',\\s*'([^']+)',\\s*'([^']+)',\\s*(\\d+),\\s*"
-            + "'([^']+)',\\s*'([^']+)',\\s*'([^']+)'\\);";
+        // 'product_dummy_origin.sql' 파일의 INSERT 문을 파싱하기 위한 정규식
+        // 형식: INSERT INTO `product` (...) VALUES (uuid_to_bin('id'), uuid_to_bin('sellerId'),
+        // '상품명', '설명', uuid_to_bin('카테고리UUID'), 가격, '상태', 'created_at', 'updated_at');
+        String regex = "VALUES\\s*\\(uuid_to_bin\\('[^']+'\\),\\s*uuid_to_bin\\('[^']+'\\),\\s*"
+            + "'([^']*)',\\s*'([^']*)',\\s*"
+            + "uuid_to_bin\\('([^']+)'\\),\\s*(\\d+),\\s*'([^']*)',\\s*'[^']*',\\s*'[^']*'\\)";
         Pattern pattern = Pattern.compile(regex, Pattern.MULTILINE | Pattern.DOTALL);
 
         Matcher matcher = pattern.matcher(content);
 
         while (matcher.find()) {
-            String productName = matcher.group(3);
-            String description = matcher.group(4);
-            String category = matcher.group(5);
-            int price = Integer.parseInt(matcher.group(6));
+            String productName = matcher.group(1);
+            String description = matcher.group(2);
+            String categoryUuid = matcher.group(3);
+            long price = Long.parseLong(matcher.group(4));
+            String status = matcher.group(5);
 
             // 유효한 카테고리만 포함
-            if (isValidCategory(category)) {
-                products.add(new ProductGenerationDto(productName, description, category, price, 100, "ON_SALE"));
+            if (isValidCategory(categoryUuid)) {
+                products.add(new ProductGenerationDto(
+                    productName,
+                    description,
+                    categoryUuid,
+                    price,
+                    status
+                ));
             }
         }
 
         return products;
     }
 
-    private boolean isValidCategory(String category) {
-        for (String validCategory : VALID_CATEGORIES) {
-            if (validCategory.equals(category)) {
-                return true;
-            }
+    private boolean isValidCategory(String categoryUuid) {
+        // UUID 형식 검증 (기본적인 UUID 패턴 확인)
+        if (categoryUuid == null || categoryUuid.trim().isEmpty()) {
+            return false;
         }
-        return false;
+
+        // UUID 패턴 검증 (8-4-4-4-12 형식)
+        String uuidPattern = "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$";
+        return categoryUuid.matches(uuidPattern);
     }
 }

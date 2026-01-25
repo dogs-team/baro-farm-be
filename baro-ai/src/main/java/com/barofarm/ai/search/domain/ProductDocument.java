@@ -32,7 +32,13 @@ public class ProductDocument {
     private String productName; // 검색 대상
 
     @Field(type = FieldType.Keyword)
-    private String productCategory; // 필터링 기능이 필요하다면 유효
+    private UUID productCategoryId; // 카테고리 ID
+
+    @Field(type = FieldType.Keyword)
+    private String productCategoryCode; // 카테고리 코드
+
+    @Field(type = FieldType.Keyword)
+    private String productCategoryName; // 카테고리 이름
 
     @Field(type = FieldType.Long)
     private Long price; // 필터링 & 정렬 기능이 필요하다면 유효 (가격대 필터, 가격순 정렬)
@@ -50,17 +56,22 @@ public class ProductDocument {
     public ProductDocument() {
     }
 
+    @SuppressWarnings("checkstyle:ParameterNumber")
     public ProductDocument(
         UUID productId,
         String productName,
-        String productCategory,
+        UUID productCategoryId,
+        String productCategoryCode,
+        String productCategoryName,
         Long price,
         String status,
         Instant updatedAt,
         float[] vector) {
         this.productId = productId;
         this.productName = productName;
-        this.productCategory = productCategory;
+        this.productCategoryId = productCategoryId;
+        this.productCategoryCode = productCategoryCode;
+        this.productCategoryName = productCategoryName;
         this.price = price;
         this.status = status;
         this.updatedAt = updatedAt;

@@ -66,7 +66,7 @@ public class ProductSearchService {
                 .map(d -> new ProductSearchResponse(
                     d.getProductId(),
                     d.getProductName(),
-                    d.getProductCategory(),
+                    d.getProductCategoryName(),
                     d.getPrice()
                 ))
                 .toList();
@@ -138,7 +138,7 @@ public class ProductSearchService {
                 .map(d -> new ProductSearchResponse(
                     d.getProductId(),
                     d.getProductName(),
-                    d.getProductCategory(),
+                    d.getProductCategoryName(),
                     d.getPrice()
                 ))
                 .toList();
@@ -235,16 +235,24 @@ public class ProductSearchService {
 
         b.filter(f ->
             f.terms(t ->
-                t.field("productCategory")
+                t.field("productCategoryId")
                     .terms(v ->
                         v.value(
                             categories.stream()
+                                .map(this::categoryCodeToUuid)
                                 .map(FieldValue::of)
                                 .toList()
                         )
                     )
             )
         );
+    }
+
+    // 카테고리 코드를 UUID로 변환 (실제로는 DB 조회나 캐시에서 가져와야 함)
+    private String categoryCodeToUuid(String categoryCode) {
+        // 임시로 코드 그대로 반환 (실제로는 코드->UUID 매핑 필요)
+        // TODO: 카테고리 코드에서 UUID로 변환하는 로직 구현
+        return categoryCode;
     }
 
     // 가격 필터

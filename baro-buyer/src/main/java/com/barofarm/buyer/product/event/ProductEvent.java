@@ -23,7 +23,9 @@ public class ProductEvent {
     public static class ProductEventData {
         private UUID productId;
         private String productName;
-        private String productCategory;
+        private UUID productCategoryId;
+        private String productCategoryName;
+        private String productCategoryCode;  // baro-ai consumer expects this
         private Long price;
         private String status;
         private Instant updatedAt;

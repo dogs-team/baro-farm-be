@@ -46,7 +46,7 @@ spec:
               imagePullPolicy: Always
               command: ["sh", "-c"]
               args:
-                - "java -Duser.timezone=Asia/Seoul -Xms128m -Xmx256m -jar app.jar"
+                - "java -Dapp.name=baro-settlement-cronjob -Duser.timezone=Asia/Seoul -Xms128m -Xmx256m -jar app.jar"
               env:
                 - name: SPRING_PROFILES_ACTIVE
                   value: "prod,batch"
