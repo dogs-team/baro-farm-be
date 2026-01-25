@@ -49,16 +49,6 @@ spring:
                 redis-rate-limiter.burstCapacity: 100
                 redis-rate-limiter.requestedTokens: 1
                 key-resolver: "#{@gatewayKeyResolver}"
-            - name: Retry
-              args:
-                retries: 2
-                methods: GET
-                statuses: BAD_GATEWAY,SERVICE_UNAVAILABLE,GATEWAY_TIMEOUT
-                backoff:
-                  firstBackoff: 50ms
-                  maxBackoff: 500ms
-                  factor: 2
-                  basedOnPreviousValue: true
             - name: CircuitBreaker
               args:
                 name: gatewayCircuitBreaker
@@ -87,6 +77,16 @@ spring:
                 - Path=/openapi/auth/v3/api-docs, /openapi/auth/v3/api-docs/**
               filters:
                 - RewritePath=/openapi/auth/(?<segment>.*), /${segment}
+                - name: Retry
+                  args:
+                    retries: 2
+                    methods: GET
+                    statuses: BAD_GATEWAY,SERVICE_UNAVAILABLE,GATEWAY_TIMEOUT
+                    backoff:
+                      firstBackoff: 50ms
+                      maxBackoff: 500ms
+                      factor: 2
+                      basedOnPreviousValue: true
                 - Authentication
                 - OpaAuthorization
 
@@ -96,6 +96,16 @@ spring:
                 - Path=/openapi/buyer/v3/api-docs, /openapi/buyer/v3/api-docs/**
               filters:
                 - RewritePath=/openapi/buyer/(?<segment>.*), /${segment}
+                - name: Retry
+                  args:
+                    retries: 2
+                    methods: GET
+                    statuses: BAD_GATEWAY,SERVICE_UNAVAILABLE,GATEWAY_TIMEOUT
+                    backoff:
+                      firstBackoff: 50ms
+                      maxBackoff: 500ms
+                      factor: 2
+                      basedOnPreviousValue: true
 
             - id: seller-service-openapi
               uri: lb://seller-service
@@ -103,6 +113,16 @@ spring:
                 - Path=/openapi/seller/v3/api-docs, /openapi/seller/v3/api-docs/**
               filters:
                 - RewritePath=/openapi/seller/(?<segment>.*), /${segment}
+                - name: Retry
+                  args:
+                    retries: 2
+                    methods: GET
+                    statuses: BAD_GATEWAY,SERVICE_UNAVAILABLE,GATEWAY_TIMEOUT
+                    backoff:
+                      firstBackoff: 50ms
+                      maxBackoff: 500ms
+                      factor: 2
+                      basedOnPreviousValue: true
 
             - id: order-service-openapi
               uri: lb://order-service
@@ -110,6 +130,16 @@ spring:
                 - Path=/openapi/order/v3/api-docs, /openapi/order/v3/api-docs/**
               filters:
                 - RewritePath=/openapi/order/(?<segment>.*), /${segment}
+                - name: Retry
+                  args:
+                    retries: 2
+                    methods: GET
+                    statuses: BAD_GATEWAY,SERVICE_UNAVAILABLE,GATEWAY_TIMEOUT
+                    backoff:
+                      firstBackoff: 50ms
+                      maxBackoff: 500ms
+                      factor: 2
+                      basedOnPreviousValue: true
 
             - id: payment-service-openapi
               uri: lb://payment-service
@@ -117,6 +147,16 @@ spring:
                 - Path=/openapi/payment/v3/api-docs, /openapi/payment/v3/api-docs/**
               filters:
                 - RewritePath=/openapi/payment/(?<segment>.*), /${segment}
+                - name: Retry
+                  args:
+                    retries: 2
+                    methods: GET
+                    statuses: BAD_GATEWAY,SERVICE_UNAVAILABLE,GATEWAY_TIMEOUT
+                    backoff:
+                      firstBackoff: 50ms
+                      maxBackoff: 500ms
+                      factor: 2
+                      basedOnPreviousValue: true
 
             - id: support-service-openapi
               uri: lb://support-service
@@ -124,6 +164,16 @@ spring:
                 - Path=/openapi/support/v3/api-docs, /openapi/support/v3/api-docs/**
               filters:
                 - RewritePath=/openapi/support/(?<segment>.*), /${segment}
+                - name: Retry
+                  args:
+                    retries: 2
+                    methods: GET
+                    statuses: BAD_GATEWAY,SERVICE_UNAVAILABLE,GATEWAY_TIMEOUT
+                    backoff:
+                      firstBackoff: 50ms
+                      maxBackoff: 500ms
+                      factor: 2
+                      basedOnPreviousValue: true
 
             # DaemonSet 배포 서비스는 Gateway에서 제공하지 않음
             # - id: settlement-service-openapi
@@ -139,6 +189,16 @@ spring:
                 - Path=/openapi/ai/v3/api-docs, /openapi/ai/v3/api-docs/**
               filters:
                 - RewritePath=/openapi/ai/(?<segment>.*), /${segment}
+                - name: Retry
+                  args:
+                    retries: 2
+                    methods: GET
+                    statuses: BAD_GATEWAY,SERVICE_UNAVAILABLE,GATEWAY_TIMEOUT
+                    backoff:
+                      firstBackoff: 50ms
+                      maxBackoff: 500ms
+                      factor: 2
+                      basedOnPreviousValue: true
 
             # ============================================
             # 일반 API 서비스 라우트
@@ -159,6 +219,16 @@ spring:
                 - Path=/auth-service/**
               filters:
                 - RewritePath=/auth-service/(?<segment>.*), /${segment}
+                - name: Retry
+                  args:
+                    retries: 2
+                    methods: GET
+                    statuses: BAD_GATEWAY,SERVICE_UNAVAILABLE,GATEWAY_TIMEOUT
+                    backoff:
+                      firstBackoff: 50ms
+                      maxBackoff: 500ms
+                      factor: 2
+                      basedOnPreviousValue: true
                 - Authentication
                 - OpaAuthorization
 
@@ -169,6 +239,16 @@ spring:
                 - Path=/buyer-service/**
               filters:
                 - RewritePath=/buyer-service/(?<segment>.*), /${segment}
+                - name: Retry
+                  args:
+                    retries: 2
+                    methods: GET
+                    statuses: BAD_GATEWAY,SERVICE_UNAVAILABLE,GATEWAY_TIMEOUT
+                    backoff:
+                      firstBackoff: 50ms
+                      maxBackoff: 500ms
+                      factor: 2
+                      basedOnPreviousValue: true
                 - Authentication
                 - OpaAuthorization
 
@@ -179,6 +259,16 @@ spring:
                 - Path=/seller-service/**
               filters:
                 - RewritePath=/seller-service/(?<segment>.*), /${segment}
+                - name: Retry
+                  args:
+                    retries: 2
+                    methods: GET
+                    statuses: BAD_GATEWAY,SERVICE_UNAVAILABLE,GATEWAY_TIMEOUT
+                    backoff:
+                      firstBackoff: 50ms
+                      maxBackoff: 500ms
+                      factor: 2
+                      basedOnPreviousValue: true
                 - Authentication
                 - OpaAuthorization
 
@@ -189,6 +279,16 @@ spring:
                 - Path=/order-service/**
               filters:
                 - RewritePath=/order-service/(?<segment>.*), /${segment}
+                - name: Retry
+                  args:
+                    retries: 2
+                    methods: GET
+                    statuses: BAD_GATEWAY,SERVICE_UNAVAILABLE,GATEWAY_TIMEOUT
+                    backoff:
+                      firstBackoff: 50ms
+                      maxBackoff: 500ms
+                      factor: 2
+                      basedOnPreviousValue: true
                 - Authentication
                 - OpaAuthorization
 
@@ -199,6 +299,16 @@ spring:
                 - Path=/payment-service/**
               filters:
                 - RewritePath=/payment-service/(?<segment>.*), /${segment}
+                - name: Retry
+                  args:
+                    retries: 2
+                    methods: GET
+                    statuses: BAD_GATEWAY,SERVICE_UNAVAILABLE,GATEWAY_TIMEOUT
+                    backoff:
+                      firstBackoff: 50ms
+                      maxBackoff: 500ms
+                      factor: 2
+                      basedOnPreviousValue: true
                 - Authentication
                 - OpaAuthorization
 
@@ -209,6 +319,16 @@ spring:
                 - Path=/support-service/**
               filters:
                 - RewritePath=/support-service/(?<segment>.*), /${segment}
+                - name: Retry
+                  args:
+                    retries: 2
+                    methods: GET
+                    statuses: BAD_GATEWAY,SERVICE_UNAVAILABLE,GATEWAY_TIMEOUT
+                    backoff:
+                      firstBackoff: 50ms
+                      maxBackoff: 500ms
+                      factor: 2
+                      basedOnPreviousValue: true
                 - Authentication
                 - OpaAuthorization
 
@@ -219,6 +339,16 @@ spring:
                 - Path=/settlement-service/**
               filters:
                 - RewritePath=/settlement-service/(?<segment>.*), /${segment}
+                - name: Retry
+                  args:
+                    retries: 2
+                    methods: GET
+                    statuses: BAD_GATEWAY,SERVICE_UNAVAILABLE,GATEWAY_TIMEOUT
+                    backoff:
+                      firstBackoff: 50ms
+                      maxBackoff: 500ms
+                      factor: 2
+                      basedOnPreviousValue: true
                 - Authentication
                 - OpaAuthorization
             # DaemonSet 배포 서비스는 Gateway에서 제공하지 않음
@@ -236,6 +366,16 @@ spring:
                 - Path=/ai-service/**
               filters:
                 - RewritePath=/ai-service/(?<segment>.*), /${segment}
+                - name: Retry
+                  args:
+                    retries: 2
+                    methods: GET
+                    statuses: BAD_GATEWAY,SERVICE_UNAVAILABLE,GATEWAY_TIMEOUT
+                    backoff:
+                      firstBackoff: 50ms
+                      maxBackoff: 500ms
+                      factor: 2
+                      basedOnPreviousValue: true
                 - Authentication
                 - OpaAuthorization
 
