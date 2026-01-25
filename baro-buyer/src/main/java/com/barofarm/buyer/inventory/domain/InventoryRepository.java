@@ -10,6 +10,8 @@ public interface InventoryRepository {
 
     List<Inventory> findAllByProductId(UUID productId);
 
+    List<Inventory> findAllByProductIdIn(List<UUID> productIds);
+
     Inventory save(Inventory inventory);
 
     void delete(Inventory inventory);

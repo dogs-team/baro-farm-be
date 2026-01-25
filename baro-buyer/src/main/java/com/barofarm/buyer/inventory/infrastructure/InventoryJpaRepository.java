@@ -8,5 +8,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 public interface InventoryJpaRepository extends JpaRepository<Inventory, UUID> {
     List<Inventory> findAllByProductId(UUID productId);
 
+    List<Inventory> findAllByProductIdIn(List<UUID> productIds);
+
     void deleteAllByProductId(UUID productId);
 }

@@ -93,7 +93,7 @@ public class PersonalizedRecommendService {
             medoidDiversityService.selectDiverseMedoids(userVector, candidates, topK);
 
         // 최종 추천 응답 DTO로 변환
-        return medoids.stream()
+        List<ProductRecommendResponse> recommendations = medoids.stream()
             .map(product -> new ProductRecommendResponse(
                 product.getProductId(),
                 product.getProductName(),
@@ -101,6 +101,62 @@ public class PersonalizedRecommendService {
                 product.getPrice()
             ))
             .toList();
+
+        // 추천 결과와 근거를 로그로 출력
+        logRecommendationResults(recommendations, medoids, candidates, preferredCategoryCode, categoryMatchBonus);
+
+        return recommendations;
+    }
+
+    /**
+     * 추천 결과와 근거를 로그로 출력합니다.
+     */
+    private void logRecommendationResults(
+        List<ProductRecommendResponse> recommendations,
+        List<ProductDocument> medoids,
+        List<ProductDocument> candidates,
+        String preferredCategoryCode,
+        Double categoryMatchBonus
+    ) {
+        if (recommendations.isEmpty()) {
+            log.info("🎯 [추천 결과] 추천된 상품이 없습니다.");
+            return;
+        }
+
+        StringBuilder logMessage = new StringBuilder();
+        logMessage.append(String.format("🎯 [추천 결과] 총 %d개 상품 추천 완료\n", recommendations.size()));
+        logMessage.append(String.format("   - 후보 상품 수: %d개\n", candidates.size()));
+        String categoryDisplay = preferredCategoryCode != null ? preferredCategoryCode : "없음";
+        logMessage.append(String.format("   - 선호 카테고리: %s\n", categoryDisplay));
+        String bonusDisplay = categoryMatchBonus != null
+            ? String.format("%.1f%%", categoryMatchBonus * 100)
+            : "없음";
+        logMessage.append(String.format("   - 카테고리 보너스: %s\n", bonusDisplay));
+        logMessage.append("   - 추천 상품 목록:\n");
+
+        for (int i = 0; i < recommendations.size(); i++) {
+            ProductRecommendResponse rec = recommendations.get(i);
+            ProductDocument medoid = medoids.get(i);
+
+            // 카테고리 보너스 적용 여부 확인
+            boolean hasCategoryBonus = preferredCategoryCode != null
+                && medoid.getProductCategoryCode() != null
+                && medoid.getProductCategoryCode().equals(preferredCategoryCode);
+
+            logMessage.append(String.format(
+                "     %d. [%s] %s (카테고리: %s, 가격: %,d원%s)\n",
+                i + 1,
+                rec.productId(),
+                rec.productName(),
+                rec.productCategoryName(),
+                rec.price(),
+                hasCategoryBonus ? ", 카테고리 보너스 적용" : ""
+            ));
+        }
+
+        // INFO 레벨로 출력 (DEBUG 레벨도 함께 출력)
+        log.info(logMessage.toString());
+        log.debug("추천 결과 상세:\n{}", logMessage.toString());
     }
 
     // List<Double>을 float[]로 변환합니다.

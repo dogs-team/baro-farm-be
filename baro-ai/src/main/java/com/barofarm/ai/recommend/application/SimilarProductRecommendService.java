@@ -80,7 +80,7 @@ public class SimilarProductRecommendService {
             medoidDiversityService.selectDiverseMedoids(vector, candidates, topK);
 
         // 최종 추천 응답 DTO로 변환
-        return medoids.stream()
+        List<ProductRecommendResponse> recommendations = medoids.stream()
             .map(product -> new ProductRecommendResponse(
                 product.getProductId(),
                 product.getProductName(),
@@ -88,5 +88,65 @@ public class SimilarProductRecommendService {
                 product.getPrice()
             ))
             .toList();
+
+        // 추천 결과와 근거를 로그로 출력
+        logRecommendationResults(
+            recommendations, medoids, candidates, originalProductId, originalCategoryCode, categoryMatchBonus);
+
+        return recommendations;
+    }
+
+    /**
+     * 추천 결과와 근거를 로그로 출력합니다.
+     */
+    private void logRecommendationResults(
+        List<ProductRecommendResponse> recommendations,
+        List<ProductDocument> medoids,
+        List<ProductDocument> candidates,
+        UUID originalProductId,
+        String originalCategoryCode,
+        Double categoryMatchBonus
+    ) {
+        if (recommendations.isEmpty()) {
+            log.info("🎯 [유사 상품 추천 결과] 추천된 상품이 없습니다. (기준 상품 ID: {})", originalProductId);
+            return;
+        }
+
+        StringBuilder logMessage = new StringBuilder();
+        logMessage.append(String.format(
+            "🎯 [유사 상품 추천 결과] 총 %d개 상품 추천 완료 (기준 상품 ID: %s)\n",
+            recommendations.size(), originalProductId));
+        logMessage.append(String.format("   - 후보 상품 수: %d개\n", candidates.size()));
+        String categoryDisplay = originalCategoryCode != null ? originalCategoryCode : "없음";
+        logMessage.append(String.format("   - 기준 상품 카테고리: %s\n", categoryDisplay));
+        String bonusDisplay = categoryMatchBonus != null
+            ? String.format("%.1f%%", categoryMatchBonus * 100)
+            : "없음";
+        logMessage.append(String.format("   - 카테고리 보너스: %s\n", bonusDisplay));
+        logMessage.append("   - 추천 상품 목록:\n");
+
+        for (int i = 0; i < recommendations.size(); i++) {
+            ProductRecommendResponse rec = recommendations.get(i);
+            ProductDocument medoid = medoids.get(i);
+
+            // 카테고리 보너스 적용 여부 확인
+            boolean hasCategoryBonus = originalCategoryCode != null
+                && medoid.getProductCategoryCode() != null
+                && medoid.getProductCategoryCode().equals(originalCategoryCode);
+
+            logMessage.append(String.format(
+                "     %d. [%s] %s (카테고리: %s, 가격: %,d원%s)\n",
+                i + 1,
+                rec.productId(),
+                rec.productName(),
+                rec.productCategoryName(),
+                rec.price(),
+                hasCategoryBonus ? ", 카테고리 보너스 적용" : ""
+            ));
+        }
+
+        // INFO 레벨로 출력 (DEBUG 레벨도 함께 출력)
+        log.info(logMessage.toString());
+        log.debug("유사 상품 추천 결과 상세:\n{}", logMessage.toString());
     }
 }

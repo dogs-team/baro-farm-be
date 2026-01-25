@@ -25,6 +25,11 @@ public class InventoryRepositoryAdapter implements InventoryRepository {
     }
 
     @Override
+    public List<Inventory> findAllByProductIdIn(List<UUID> productIds) {
+        return inventoryJpaRepository.findAllByProductIdIn(productIds);
+    }
+
+    @Override
     public Inventory save(Inventory inventory) {
         return inventoryJpaRepository.save(inventory);
     }

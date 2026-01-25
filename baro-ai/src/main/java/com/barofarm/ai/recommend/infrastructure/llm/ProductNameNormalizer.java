@@ -258,5 +258,6 @@ public class ProductNameNormalizer {
 
     private record BatchNormalizationResponse(List<NormalizationItem> normalizations) { }
 
-    private record NormalizationItem(String productName, String normalizedIngredient) { }
+    private record
+    NormalizationItem(String productName, String normalizedIngredient) { }
 }

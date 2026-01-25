@@ -192,4 +192,12 @@ public class InventoryService {
             .map(InventoryInfo::from)
             .toList();
     }
+
+    @Transactional(readOnly = true)
+    public List<Inventory> getInventoriesByProductIds(List<UUID> productIds) {
+        if (productIds == null || productIds.isEmpty()) {
+            return List.of();
+        }
+        return inventoryRepository.findAllByProductIdIn(productIds);
+    }
 }

@@ -66,11 +66,46 @@ public class ProductService {
     public CustomPage<ProductDetailInfo> getProducts(Pageable pageable) {
         Page<Product> products = productRepository.findAll(pageable);
 
-        List<UUID> productIds = products.getContent().stream()
+        // 배치 조회를 위한 상품 ID 수집
+        List<UUID> productIds = products.stream()
             .map(Product::getId)
             .toList();
 
-        return null;
+        // 배치 조회로 모든 재고 정보 조회
+        List<Inventory> allInventories = inventoryService.getInventoriesByProductIds(productIds);
+        java.util.Map<UUID, List<Inventory>> inventoriesByProductId = allInventories.stream()
+            .collect(java.util.stream.Collectors.groupingBy(Inventory::getProductId));
+
+        // 배치 조회로 모든 리뷰 요약 조회
+        List<ReviewSummary> allPositiveSummaries = reviewSummaryRepository
+            .findByProductIdInAndSentiment(productIds, ReviewSummarySentiment.POSITIVE);
+        List<ReviewSummary> allNegativeSummaries = reviewSummaryRepository
+            .findByProductIdInAndSentiment(productIds, ReviewSummarySentiment.NEGATIVE);
+
+        java.util.Map<UUID, List<String>> positiveSummariesByProductId = allPositiveSummaries.stream()
+            .collect(java.util.stream.Collectors.toMap(
+                ReviewSummary::getProductId,
+                ReviewSummary::getSummaryText,
+                (existing, replacement) -> existing
+            ));
+        java.util.Map<UUID, List<String>> negativeSummariesByProductId = allNegativeSummaries.stream()
+            .collect(java.util.stream.Collectors.toMap(
+                ReviewSummary::getProductId,
+                ReviewSummary::getSummaryText,
+                (existing, replacement) -> existing
+            ));
+
+        // Page<ProductDetailInfo>로 변환
+        Page<ProductDetailInfo> productDetailPage = products.map(product -> {
+            UUID productId = product.getId();
+            List<Inventory> inventories = inventoriesByProductId.getOrDefault(productId, List.of());
+            List<ProductInventoryOptionInfo> inventoryOptions = toInventoryOptionInfos(inventories);
+            List<String> positiveSummary = positiveSummariesByProductId.getOrDefault(productId, List.of());
+            List<String> negativeSummary = negativeSummariesByProductId.getOrDefault(productId, List.of());
+            return ProductDetailInfo.from(product, inventoryOptions, positiveSummary, negativeSummary);
+        });
+
+        return CustomPage.from(productDetailPage);
     }
 
     @Transactional
