@@ -6,7 +6,7 @@ services:
     environment:
       - SPRING_PROFILES_ACTIVE=local
       - AUTH_COOKIE_SECURE=false
-      - SPRING_DATASOURCE_URL=jdbc:mysql://baro-mysql:3306/${MYSQL_DATABASE_AUTH}
+      - SPRING_DATASOURCE_URL=jdbc:mysql://host.docker.internal:3306/${MYSQL_DATABASE_AUTH}
       - SPRING_DATASOURCE_USERNAME=${MYSQL_USER}
       - SPRING_DATASOURCE_PASSWORD=${MYSQL_PASSWORD}
       - SPRING_KAFKA_BOOTSTRAP_SERVERS=baro-kafka:9092
