@@ -81,8 +81,14 @@ service_data(service) := data.auth {
   service == "seller"
 } else := data.order {
   service == "order"
+} else := data.payment {
+  service == "payment"
+} else := data.ai {
+  service == "ai"
 } else := data.support {
   service == "support"
+} else := data.settlement {
+  service == "settlement"
 } else := null
 
 
@@ -96,7 +102,6 @@ status_allowed(rule) {
 } else {
   # Blocked users are denied regardless of route role.
   not user_blocked
-  seller_allowed(rule)
 }
 
 requires_auth(rule) {
@@ -132,36 +137,6 @@ hotlist_user_status := status {
   status := data.hotlist.users[input.subject.id].status
 }
 
-seller_allowed(rule) {
-  not requires_seller_approval(rule)
-} else {
-  # Seller routes require APPROVED status when known. UNKNOWN is treated as allowed
-  # until seller status is wired from token or hotlist.
-  allowed := {"APPROVED", "UNKNOWN"}
-  allowed[effective_seller_status]
-}
-
-requires_seller_approval(rule) {
-  has_role("SELLER")
-  "SELLER" == rule.roles[_]
-}
-
-has_role(role) {
-  role == input.subject.roles[_]
-}
-
-effective_seller_status := status {
-  status := hotlist_seller_status
-} else := subject_seller_status
-
-subject_seller_status := status {
-  status := input.subject.seller_status
-} else := "UNKNOWN"
-
-hotlist_seller_status := status {
-  input.subject.id != null
-  status := data.hotlist.sellers[input.subject.id].status
-}
 
 flags_allowed(rule) {
   not flag_denied(rule)
