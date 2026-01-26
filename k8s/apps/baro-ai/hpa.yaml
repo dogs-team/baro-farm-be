@@ -1,0 +1,41 @@
+# Horizontal Pod Autoscaler (HPA)
+# - CPU 사용률 70% 초과 시 스케일 아웃, 70% 미만이면 스케일 인
+# - hostNetwork 사용 시 동일 노드에서 포트(8092) 충돌 → 노드당 파드 1개만 가능
+# - ⚠️ maxReplicas는 worker 노드 수와 동일하게 설정 (worker 1개면 maxReplicas: 1)
+# - worker 노드가 1개면 maxReplicas > 1로 설정해도 실제로는 1개만 실행됨 (포트 충돌)
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: baro-ai
+  namespace: baro-prod
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: baro-ai
+  minReplicas: 1
+  maxReplicas: 2
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70
+  behavior:  # 스케일 속도 조절 (급격한 변동 완화)
+    scaleDown:
+      stabilizationWindowSeconds: 300
+      policies:
+        - type: Percent
+          value: 50
+          periodSeconds: 60
+    scaleUp:
+      stabilizationWindowSeconds: 0
+      policies:
+        - type: Percent
+          value: 100
+          periodSeconds: 15
+        - type: Pods
+          value: 2
+          periodSeconds: 15
+      selectPolicy: Max

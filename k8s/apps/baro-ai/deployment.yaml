@@ -7,12 +7,12 @@ metadata:
     app: baro-ai
     component: app
 spec:
-  replicas: 1
+  replicas: 1  # HPA가 있으면 minReplicas~maxReplicas 구간으로 오버라이드됨
   strategy:
     type: RollingUpdate
     rollingUpdate:
-      maxSurge: 0  # hostNetwork 사용 시 포트 충돌 방지
-      maxUnavailable: 1
+      maxSurge: 0  # hostNetwork 사용 시 포트 충돌 방지 (새 파드 먼저 올리지 않음)
+      maxUnavailable: 1  # 업데이트 시 동시에 내릴 수 있는 파드 수 (1~maxReplicas 공통)
   selector:
     matchLabels:
       app: baro-ai
@@ -39,6 +39,17 @@ spec:
               - matchExpressions:
                   - key: node-role.kubernetes.io/control-plane
                     operator: DoesNotExist
+        # hostNetwork 사용 시 동일 노드에서 포트(8092) 충돌 방지
+        # ⚠️ worker 노드가 1개면 replicas > 1로 설정해도 실제로는 1개만 실행됨
+        # required로 바꾸면 worker 1개일 때 2번째 파드가 Pending 상태가 됨
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchLabels:
+                    app: baro-ai
+                topologyKey: kubernetes.io/hostname
       securityContext:
         fsGroup: 1001  # 로그 디렉토리 소유권 설정 (1001:1001)
       containers:
@@ -131,16 +142,6 @@ spec:
                 secretKeyRef:
                   name: baro-secrets
                   key: SPRING_AI_OPENAI_API_KEY
-            # OpenAI 모델 설정
-            - name: SPRING_AI_OPENAI_MODEL
-              value: "gpt-4o-mini"
-            - name: SPRING_AI_OPENAI_EMBEDDING_MODEL
-              value: "text-embedding-3-small"
-            # 제철 판단 RAG 설정
-            - name: SEASONALITY_RAG_ENABLED
-              value: "true"
-            - name: SEASONALITY_CSV_PATH
-              value: "/mnt/s3/dataset/season/seasonality-data.csv"
             # 로그 디렉토리 설정
             - name: LOG_DIR
               value: "/mnt/s3/logs/ai"

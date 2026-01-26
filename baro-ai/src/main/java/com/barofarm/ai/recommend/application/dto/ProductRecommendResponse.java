@@ -7,6 +7,6 @@ import java.util.UUID;
 public record ProductRecommendResponse(
     UUID productId,        // 상품 고유 식별자
     String productName,     // 상품 이름
-    String productCategory, // 상품 카테고리
+    String productCategoryName, // 상품 카테고리 이름
     Long price              // 상품 가격
 ) { }

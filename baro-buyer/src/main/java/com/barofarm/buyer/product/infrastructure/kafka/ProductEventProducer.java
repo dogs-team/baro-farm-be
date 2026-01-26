@@ -22,7 +22,7 @@ public class ProductEventProducer {
         log.info(
             "📤 [PRODUCER] Sending product event to topic '{}' - Type: {}, ID: {}, Name: {}, Category: {}, Price: {}",
             TOPIC, event.getType(), data.getProductId(), data.getProductName(),
-            data.getProductCategory(), data.getPrice());
+            data.getProductCategoryName(), data.getPrice());
         kafkaTemplate.send(TOPIC, event).whenComplete((result, ex) -> {
             if (ex == null) {
                 log.info(

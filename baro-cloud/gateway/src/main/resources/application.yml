@@ -1,4 +1,4 @@
-﻿server:
+server:
   port: ${SERVER_PORT:8080}  # 환경 변수로 오버라이드 가능 (Config Server 설정 덮어쓰기 방지)
 
 spring:
@@ -351,7 +351,15 @@ spring:
                 - Authentication
                 - OpaAuthorization
 
-            # AI Service
+            # AI Service - Public (검색 API는 인증 불필요)
+            - id: ai-service-public
+              uri: lb://ai-service
+              predicates:
+                - Path=/ai-service/api/v1/search/**
+              filters:
+                - RewritePath=/ai-service/(?<segment>.*), /${segment}
+
+            # AI Service - Protected (추천, 제철 판단 등은 인증 필요)
             - id: ai-service
               uri: lb://ai-service
               predicates:

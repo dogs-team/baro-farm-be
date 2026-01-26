@@ -1,5 +1,7 @@
 package com.barofarm.ai.datagen.application;
 
+import com.barofarm.ai.datagen.application.constants.DataGenConstants;
+import com.barofarm.ai.datagen.application.prompt.SearchKeywordPrompt;
 import com.barofarm.ai.log.domain.CartLogDocument;
 import com.barofarm.ai.log.domain.OrderLogDocument;
 import com.barofarm.ai.log.domain.SearchLogDocument;
@@ -42,24 +44,6 @@ public class UserLogGenerationService {
     private final ProductSearchRepository productSearchRepository;
     private final Random random = new Random();
 
-    // 하드코딩된 테스트용 사용자 ID
-    private static final UUID TEST_USER_ID = UUID.fromString("550e8400-e29b-41d4-a716-446655440000");
-
-    // 기본 기간 (최근 30일)
-    private static final int DEFAULT_DAYS_BACK = 30;
-
-    // UserProfileEmbeddingService가 사용하는 이벤트 타입들
-    private static final String[] CART_EVENT_TYPES = {
-        "CART_ITEM_ADDED",        // 가중치 2
-        "CART_QUANTITY_UPDATED",  // 가중치 1
-        "CART_ITEM_REMOVED"       // 가중치 0 (제외됨)
-    };
-
-    private static final String[] ORDER_EVENT_TYPES = {
-        "ORDER_CONFIRMED",   // 가중치 3
-        "ORDER_CANCELLED"    // 가중치 0 (제외됨)
-    };
-
     /**
      * 하드코딩된 테스트 사용자에 대한 더미 행동 로그를 생성합니다.
      * UserProfileEmbeddingService가 사용하는 로그 형식에 맞춰 생성합니다.
@@ -82,92 +66,39 @@ public class UserLogGenerationService {
      *   <li>기존 로그는 삭제되지 않으며, 최신순으로 5개씩만 사용됩니다</li>
      * </ul>
      */
-    @SuppressWarnings("checkstyle:MethodLength")
     public void generateDummyLogsForUser() {
-        UUID userId = TEST_USER_ID;
-        int daysBack = DEFAULT_DAYS_BACK;
+        UUID userId = UUID.fromString(DataGenConstants.UserLogGeneration.TEST_USER_ID);
+        int daysBack = DataGenConstants.UserLogGeneration.DEFAULT_DAYS_BACK;
+        int maxLogsPerType = DataGenConstants.UserLogGeneration.MAX_LOGS_PER_TYPE;
 
         // Elasticsearch에서 랜덤 상품 가져오기
-        List<ProductDocument> randomProducts = getRandomProducts(10); // 충분한 수량 확보
+        List<ProductDocument> randomProducts = getRandomProducts(
+            DataGenConstants.UserLogGeneration.RANDOM_PRODUCTS_COUNT);
         if (randomProducts.isEmpty()) {
             log.error("❌ Elasticsearch에서 상품을 가져올 수 없습니다. 상품이 인덱싱되어 있는지 확인하세요.");
             return;
         }
 
         Instant now = Instant.now();
+        List<SearchLogDocument> searchLogs = generateSearchLogs(userId, daysBack, maxLogsPerType, now);
+        List<CartLogDocument> cartLogs = generateCartLogs(userId, randomProducts, daysBack, maxLogsPerType, now);
+        List<OrderLogDocument> orderLogs = generateOrderLogs(userId, randomProducts, daysBack, maxLogsPerType, now);
+
+        log.info("✅ 더미 로그 생성 완료 - User: {}, 검색: {}개, 장바구니: {}개, 주문: {}개 (총 {}개)",
+            userId, searchLogs.size(), cartLogs.size(), orderLogs.size(),
+            searchLogs.size() + cartLogs.size() + orderLogs.size());
+    }
+
+    private List<SearchLogDocument> generateSearchLogs(UUID userId, int daysBack, int maxLogsPerType, Instant now) {
         List<SearchLogDocument> searchLogs = new ArrayList<>();
-        List<CartLogDocument> cartLogs = new ArrayList<>();
-        List<OrderLogDocument> orderLogs = new ArrayList<>();
 
-        // UserProfileEmbeddingService는 각 타입별로 최대 5개씩만 사용하므로 5개로 제한
-        int maxLogsPerType = 5;
-
-        // 1. 검색 로그 생성 (LLM으로 검색 키워드 생성 후 통합 검색 실행)
         try {
             List<String> searchKeywords = generateSearchKeywordsWithLLM();
-
             for (int i = 0; i < Math.min(maxLogsPerType, searchKeywords.size()); i++) {
                 String searchQuery = searchKeywords.get(i);
-
-                // 과거 daysBack일 범위 내에서 랜덤 시간 생성
-                Instant searchedAt = now.minus(random.nextInt(daysBack), ChronoUnit.DAYS)
-                    .minus(random.nextInt(24), ChronoUnit.HOURS)
-                    .minus(random.nextInt(60), ChronoUnit.MINUTES);
-
-                // 통합 검색 실행 (검색 로그는 ProductSearchService.searchProducts()에서 자동 저장됨)
-                Pageable pageable = PageRequest.of(0, 10);
-                try {
-                    unifiedSearchService.search(userId, searchQuery, pageable);
-
-                    // 통합 검색이 성공하면 자동으로 로그가 저장되지만, 시간이 현재 시간으로 저장됨
-                    // 과거 시간으로 업데이트하기 위해 최근 저장된 로그를 찾아서 시간 수정
-                    List<SearchLogDocument> recentLogs = searchLogRepository
-                        .findAllByUserIdAndSearchedAtAfterOrderBySearchedAtDesc(
-                            userId,
-                            now.minus(1, ChronoUnit.MINUTES), // 최근 1분 내
-                            PageRequest.of(0, 1)
-                        );
-
-                    if (!recentLogs.isEmpty()) {
-                        SearchLogDocument recentLog = recentLogs.get(0);
-                        // 검색어가 일치하고 시간이 최근인 경우 업데이트
-                        if (recentLog.getSearchQuery().equals(searchQuery)) {
-                            // 기존 로그 삭제 후 과거 시간으로 새로 저장
-                            searchLogRepository.deleteById(recentLog.getId());
-
-                            SearchLogDocument updatedLog = SearchLogDocument.builder()
-                                .userId(recentLog.getUserId())
-                                .searchQuery(recentLog.getSearchQuery())
-                                .category(recentLog.getCategory())
-                                .searchedAt(searchedAt) // 과거 시간으로 업데이트
-                                .build();
-
-                            SearchLogDocument saved = searchLogRepository.save(updatedLog);
-                            searchLogs.add(saved);
-                            log.debug("✅ 통합 검색 실행 및 로그 시간 업데이트: User={}, Query='{}', Time={}",
-                                userId, searchQuery, searchedAt);
-                        } else {
-                            searchLogs.add(recentLog);
-                            log.debug("✅ 통합 검색 실행 및 로그 저장: User={}, Query='{}'",
-                                userId, searchQuery);
-                        }
-                    } else {
-                        log.warn("⚠️ 통합 검색 후 저장된 로그를 찾을 수 없습니다: User={}, Query='{}'",
-                            userId, searchQuery);
-                    }
-                } catch (Exception e) {
-                    log.warn("⚠️ 통합 검색 실행 실패, 직접 로그 저장: User={}, Query='{}', Error={}",
-                        userId, searchQuery, e.getMessage());
-
-                    // 검색 실패 시 직접 로그 저장
-                    SearchLogDocument searchLog = SearchLogDocument.builder()
-                        .userId(userId)
-                        .searchQuery(searchQuery)
-                        .category(null)
-                        .searchedAt(searchedAt)
-                        .build();
-
-                    SearchLogDocument saved = searchLogRepository.save(searchLog);
+                Instant searchedAt = generateRandomPastTime(now, daysBack);
+                SearchLogDocument saved = createOrUpdateSearchLog(userId, searchQuery, searchedAt, now);
+                if (saved != null) {
                     searchLogs.add(saved);
                 }
             }
@@ -177,41 +108,30 @@ public class UserLogGenerationService {
             List<String> defaultKeywords = getDefaultSearchKeywords();
             for (int i = 0; i < Math.min(maxLogsPerType, defaultKeywords.size()); i++) {
                 String searchQuery = defaultKeywords.get(i);
-                Instant searchedAt = now.minus(random.nextInt(daysBack), ChronoUnit.DAYS)
-                    .minus(random.nextInt(24), ChronoUnit.HOURS)
-                    .minus(random.nextInt(60), ChronoUnit.MINUTES);
-
-                SearchLogDocument searchLog = SearchLogDocument.builder()
-                    .userId(userId)
-                    .searchQuery(searchQuery)
-                    .category(null)
-                    .searchedAt(searchedAt)
-                    .build();
-
-                SearchLogDocument saved = searchLogRepository.save(searchLog);
+                Instant searchedAt = generateRandomPastTime(now, daysBack);
+                SearchLogDocument saved = saveSearchLogDirectly(userId, searchQuery, searchedAt);
                 searchLogs.add(saved);
             }
         }
 
-        // 2. 장바구니 로그 생성 (최대 5개) - 랜덤 상품 사용
+        return searchLogs;
+    }
+
+    private List<CartLogDocument> generateCartLogs(
+        UUID userId, List<ProductDocument> randomProducts, int daysBack, int maxLogsPerType, Instant now) {
+        List<CartLogDocument> cartLogs = new ArrayList<>();
+
         for (int i = 0; i < maxLogsPerType; i++) {
             ProductDocument randomProduct = randomProducts.get(random.nextInt(randomProducts.size()));
-            UUID productId = randomProduct.getProductId();
-            String productName = randomProduct.getProductName();
-            // 가중치가 높은 이벤트를 더 많이 생성 (CART_ITEM_ADDED가 70% 확률)
-            String eventType = random.nextDouble() < 0.7
-                ? "CART_ITEM_ADDED"
-                : CART_EVENT_TYPES[random.nextInt(CART_EVENT_TYPES.length)];
-
-            int quantity = random.nextInt(5) + 1; // 1~5개
-            Instant occurredAt = now.minus(random.nextInt(daysBack), ChronoUnit.DAYS)
-                .minus(random.nextInt(24), ChronoUnit.HOURS)
-                .minus(random.nextInt(60), ChronoUnit.MINUTES);
+            String eventType = selectCartEventType();
+            int quantity = random.nextInt(DataGenConstants.UserLogGeneration.MAX_CART_QUANTITY)
+                + DataGenConstants.UserLogGeneration.MIN_QUANTITY;
+            Instant occurredAt = generateRandomPastTime(now, daysBack);
 
             CartLogDocument cartLog = CartLogDocument.builder()
                 .userId(userId)
-                .productId(productId) // Elasticsearch에서 가져온 실제 productId
-                .productName(productName)
+                .productId(randomProduct.getProductId())
+                .productName(randomProduct.getProductName())
                 .eventType(eventType)
                 .quantity(quantity)
                 .occurredAt(occurredAt)
@@ -220,28 +140,27 @@ public class UserLogGenerationService {
             CartLogDocument saved = cartLogRepository.save(cartLog);
             cartLogs.add(saved);
             log.debug("✅ 장바구니 로그 생성: User={}, Product='{}', Event={}, Qty={}, Time={}",
-                userId, productName, eventType, quantity, occurredAt);
+                userId, randomProduct.getProductName(), eventType, quantity, occurredAt);
         }
 
-        // 3. 주문 로그 생성 (최대 5개) - 랜덤 상품 사용
+        return cartLogs;
+    }
+
+    private List<OrderLogDocument> generateOrderLogs(
+        UUID userId, List<ProductDocument> randomProducts, int daysBack, int maxLogsPerType, Instant now) {
+        List<OrderLogDocument> orderLogs = new ArrayList<>();
+
         for (int i = 0; i < maxLogsPerType; i++) {
             ProductDocument randomProduct = randomProducts.get(random.nextInt(randomProducts.size()));
-            UUID productId = randomProduct.getProductId();
-            String productName = randomProduct.getProductName();
-            // ORDER_CONFIRMED가 80% 확률로 생성 (가중치가 높으므로)
-            String eventType = random.nextDouble() < 0.8
-                ? "ORDER_CONFIRMED"
-                : ORDER_EVENT_TYPES[random.nextInt(ORDER_EVENT_TYPES.length)];
-
-            int quantity = random.nextInt(3) + 1; // 1~3개
-            Instant occurredAt = now.minus(random.nextInt(daysBack), ChronoUnit.DAYS)
-                .minus(random.nextInt(24), ChronoUnit.HOURS)
-                .minus(random.nextInt(60), ChronoUnit.MINUTES);
+            String eventType = selectOrderEventType();
+            int quantity = random.nextInt(DataGenConstants.UserLogGeneration.MAX_ORDER_QUANTITY)
+                + DataGenConstants.UserLogGeneration.MIN_QUANTITY;
+            Instant occurredAt = generateRandomPastTime(now, daysBack);
 
             OrderLogDocument orderLog = OrderLogDocument.builder()
                 .userId(userId)
-                .productId(productId) // Elasticsearch에서 가져온 실제 productId
-                .productName(productName)
+                .productId(randomProduct.getProductId())
+                .productName(randomProduct.getProductName())
                 .eventType(eventType)
                 .quantity(quantity)
                 .occurredAt(occurredAt)
@@ -250,12 +169,88 @@ public class UserLogGenerationService {
             OrderLogDocument saved = orderLogRepository.save(orderLog);
             orderLogs.add(saved);
             log.debug("✅ 주문 로그 생성: User={}, Product='{}', Event={}, Qty={}, Time={}",
-                userId, productName, eventType, quantity, occurredAt);
+                userId, randomProduct.getProductName(), eventType, quantity, occurredAt);
         }
 
-        log.info("✅ 더미 로그 생성 완료 - User: {}, 검색: {}개, 장바구니: {}개, 주문: {}개 (총 {}개)",
-            userId, searchLogs.size(), cartLogs.size(), orderLogs.size(),
-            searchLogs.size() + cartLogs.size() + orderLogs.size());
+        return orderLogs;
+    }
+
+    private SearchLogDocument createOrUpdateSearchLog(
+            UUID userId, String searchQuery, Instant searchedAt, Instant now) {
+        Pageable pageable = PageRequest.of(0, 10);
+        try {
+            unifiedSearchService.search(userId, searchQuery, pageable);
+
+            // 통합 검색이 성공하면 자동으로 로그가 저장되지만, 시간이 현재 시간으로 저장됨
+            // 과거 시간으로 업데이트하기 위해 최근 저장된 로그를 찾아서 시간 수정
+            List<SearchLogDocument> recentLogs = searchLogRepository
+                .findAllByUserIdAndSearchedAtAfterOrderBySearchedAtDesc(
+                    userId,
+                    now.minus(1, ChronoUnit.MINUTES),
+                    PageRequest.of(0, 1)
+                );
+
+            if (!recentLogs.isEmpty()) {
+                SearchLogDocument recentLog = recentLogs.get(0);
+                if (recentLog.getSearchQuery().equals(searchQuery)) {
+                    // 기존 로그 삭제 후 과거 시간으로 새로 저장
+                    searchLogRepository.deleteById(recentLog.getId());
+
+                    SearchLogDocument updatedLog = SearchLogDocument.builder()
+                        .userId(recentLog.getUserId())
+                        .searchQuery(recentLog.getSearchQuery())
+                        .category(recentLog.getCategory())
+                        .searchedAt(searchedAt)
+                        .build();
+
+                    SearchLogDocument saved = searchLogRepository.save(updatedLog);
+                    log.debug("✅ 통합 검색 실행 및 로그 시간 업데이트: User={}, Query='{}', Time={}",
+                        userId, searchQuery, searchedAt);
+                    return saved;
+                } else {
+                    log.debug("✅ 통합 검색 실행 및 로그 저장: User={}, Query='{}'", userId, searchQuery);
+                    return recentLog;
+                }
+            } else {
+                log.warn("⚠️ 통합 검색 후 저장된 로그를 찾을 수 없습니다: User={}, Query='{}'", userId, searchQuery);
+                return null;
+            }
+        } catch (Exception e) {
+            log.warn("⚠️ 통합 검색 실행 실패, 직접 로그 저장: User={}, Query='{}', Error={}",
+                userId, searchQuery, e.getMessage());
+            return saveSearchLogDirectly(userId, searchQuery, searchedAt);
+        }
+    }
+
+    private SearchLogDocument saveSearchLogDirectly(UUID userId, String searchQuery, Instant searchedAt) {
+        SearchLogDocument searchLog = SearchLogDocument.builder()
+            .userId(userId)
+            .searchQuery(searchQuery)
+            .category(null)
+            .searchedAt(searchedAt)
+            .build();
+
+        return searchLogRepository.save(searchLog);
+    }
+
+    private Instant generateRandomPastTime(Instant now, int daysBack) {
+        return now.minus(random.nextInt(daysBack), ChronoUnit.DAYS)
+            .minus(random.nextInt(24), ChronoUnit.HOURS)
+            .minus(random.nextInt(60), ChronoUnit.MINUTES);
+    }
+
+    private String selectCartEventType() {
+        if (random.nextDouble() < DataGenConstants.UserLogGeneration.CART_ITEM_ADDED_PROBABILITY) {
+            return "CART_ITEM_ADDED";
+        }
+        return DataGenConstants.CART_EVENT_TYPES[random.nextInt(DataGenConstants.CART_EVENT_TYPES.length)];
+    }
+
+    private String selectOrderEventType() {
+        if (random.nextDouble() < DataGenConstants.UserLogGeneration.ORDER_CONFIRMED_PROBABILITY) {
+            return "ORDER_CONFIRMED";
+        }
+        return DataGenConstants.ORDER_EVENT_TYPES[random.nextInt(DataGenConstants.ORDER_EVENT_TYPES.length)];
     }
 
     /**
@@ -294,31 +289,7 @@ public class UserLogGenerationService {
      * @return 검색 키워드 리스트 (최대 5개, LLM 실패 시 기본 키워드 반환)
      */
     private List<String> generateSearchKeywordsWithLLM() {
-        String promptTemplate = """
-            당신은 프리미엄 신선식품 이커머스에서 쇼핑하는 사용자입니다.
-            농산물, 수산물, 축산물을 검색할 때 실제 사용자가 입력할 것 같은 검색 키워드를 생성해주세요.
-
-            [요구사항]
-            1. 실제 사용자가 검색창에 입력할 것 같은 자연스러운 키워드
-            2. 농산물/수산물/축산물 관련 키워드
-            3. 상품명이 아닌 검색어 형태 (예: "사과", "제주 감귤", "한우", "연어" 등)
-                - 꼭 예시와 동일할 필요는 없습니다.
-            4. 각 키워드는 1~3단어로 구성
-            5. 총 5개의 서로 다른 키워드 생성
-
-            [예시(참고용)]
-            - "사과"
-            - "제주 감귤"
-            - "1등급 한우"
-            - "노르웨이산 연어"
-            - "청송 사과"
-            - "바나나"
-            - "고등어"
-            - "닭가슴살"
-
-            반드시 JSON 배열 형식으로만 반환하세요. 추가 설명이나 마크다운은 포함하지 마세요.
-            ["키워드1", "키워드2", "키워드3", "키워드4", "키워드5"]
-            """;
+        String promptTemplate = SearchKeywordPrompt.getPromptTemplate();
 
         try {
             log.info("🔄 [LLM] OpenAI를 사용하여 검색 키워드 생성 시작...");
@@ -335,7 +306,7 @@ public class UserLogGenerationService {
 
             // 최대 5개로 제한 및 유효성 검사
             List<String> result = keywords.stream()
-                .limit(5)
+                .limit(DataGenConstants.UserLogGeneration.MAX_SEARCH_KEYWORDS)
                 .filter(keyword -> keyword != null && !keyword.trim().isEmpty())
                 .toList();
 
@@ -379,15 +350,13 @@ public class UserLogGenerationService {
      */
     private List<ProductDocument> getRandomProducts(int count) {
         try {
-            // Elasticsearch에서 모든 상품 가져오기 (상태가 ON_SALE 또는 DISCOUNTED인 것만)
             List<ProductDocument> allProducts = new ArrayList<>();
-            Pageable pageable = PageRequest.of(0, 1000); // 충분한 수량
+            Pageable pageable = PageRequest.of(0, DataGenConstants.UserLogGeneration.MAX_PRODUCTS_FETCH_COUNT);
 
             Iterable<ProductDocument> products = productSearchRepository.findAll();
             for (ProductDocument product : products) {
                 // ON_SALE 또는 DISCOUNTED 상태만 필터링
-                if (product.getStatus() != null &&
-                    (product.getStatus().equals("ON_SALE") || product.getStatus().equals("DISCOUNTED"))) {
+                if (isValidProductStatus(product.getStatus())) {
                     allProducts.add(product);
                 }
             }
@@ -397,10 +366,7 @@ public class UserLogGenerationService {
                 return List.of();
             }
 
-            // 랜덤하게 섞기
             Collections.shuffle(allProducts, random);
-
-            // 요청한 개수만큼 반환
             int actualCount = Math.min(count, allProducts.size());
             return allProducts.subList(0, actualCount);
 
@@ -408,5 +374,9 @@ public class UserLogGenerationService {
             log.error("❌ Elasticsearch에서 상품을 가져오는 중 오류 발생: {}", e.getMessage(), e);
             return List.of();
         }
+    }
+
+    private boolean isValidProductStatus(String status) {
+        return status != null && (status.equals("ON_SALE") || status.equals("DISCOUNTED"));
     }
 }

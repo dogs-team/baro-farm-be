@@ -6,6 +6,7 @@ namespace: baro-prod
 resources:
   - deployment.yaml
   - service.yaml
+  - hpa.yaml
 
 labels:
   - includeSelectors: false  # selector는 immutable이므로 false로 설정

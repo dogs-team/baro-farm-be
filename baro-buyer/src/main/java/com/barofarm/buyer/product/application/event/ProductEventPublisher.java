@@ -20,8 +20,9 @@ public class ProductEventPublisher {
     // 상품 생성 시 발행
     public void publishProductCreated(Product product) {
         log.info(
-            "📨 [EVENT_PUBLISHER] Building PRODUCT_CREATED - ID: {}, Name: {}, Category: {}, Price: {}",
-            product.getId(), product.getProductName(), product.getCategory().getCode(), product.getPrice());
+            "📨 [EVENT_PUBLISHER] Building PRODUCT_CREATED - ID: {}, Name: {}, Category: {} ({}), Price: {}",
+            product.getId(), product.getProductName(),
+            product.getCategory().getName(), product.getCategory().getId(), product.getPrice());
         ProductEvent event = buildEvent(ProductEventType.PRODUCT_CREATED, product);
         log.info("📨 [EVENT_PUBLISHER] Event built successfully - Type: {}, Product ID: {}",
             event.getType(), event.getData().getProductId());
@@ -44,7 +45,9 @@ public class ProductEventPublisher {
             .data(ProductEvent.ProductEventData.builder()
                 .productId(product.getId())
                 .productName(product.getProductName())
-                .productCategory(product.getCategory().getCode())
+                .productCategoryId(product.getCategory().getId())
+                .productCategoryName(product.getCategory().getName())
+                .productCategoryCode(product.getCategory().getCode())
                 .price(product.getPrice())
                 .status(product.getProductStatus().name()) // enum
                 .updatedAt(Instant.now())

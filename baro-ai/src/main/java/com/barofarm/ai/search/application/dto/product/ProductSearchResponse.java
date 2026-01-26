@@ -6,7 +6,7 @@ import java.util.UUID;
 public record ProductSearchResponse(
     UUID productId,
     String productName, // 상품명
-    String productCategory, // 카테고리
+    String productCategoryName, // 카테고리 이름
     Long price // 가격
 ) {
 }

@@ -22,24 +22,27 @@ public class ProductEventConsumer {
     )
     public void onMessage(ProductEvent event) {
         ProductEvent.ProductEventData data = event.getData();
-        log.info("📨 [CONSUMER] Received product event - Type: {}, Product ID: {}, Name: {}, Category: {}, Price: {}",
+        log.info("📨 [CONSUMER] Received product event - Type: {}, Product ID: {}, Name: {}, " +
+                "Category: {} ({}), Price: {}",
                 event.getType(), data.getProductId(), data.getProductName(),
-                data.getProductCategory(), data.getPrice());
+                data.getProductCategoryName(), data.getProductCategoryId(), data.getPrice());
 
         try {
             switch (event.getType()) {
                 case PRODUCT_CREATED -> {
                     log.info(
-                        "🆕 [CONSUMER] Processing PRODUCT_CREATED - ID: {}, Name: {}, Category: {}, Price: {}",
-                        data.getProductId(), data.getProductName(), data.getProductCategory(), data.getPrice());
+                        "🆕 [CONSUMER] Processing PRODUCT_CREATED - ID: {}, Name: {}, Category: {} ({}), Price: {}",
+                        data.getProductId(), data.getProductName(),
+                        data.getProductCategoryName(), data.getProductCategoryId(), data.getPrice());
                     productIndexService.indexProduct(toRequest(data));
                     log.info("✅ [CONSUMER] Successfully indexed product - ID: {}, Name: {}",
                         data.getProductId(), data.getProductName());
                 }
                 case PRODUCT_UPDATED -> {
                     log.info(
-                        "🔄 [CONSUMER] Processing PRODUCT_UPDATED - ID: {}, Name: {}, Category: {}, Price: {}",
-                        data.getProductId(), data.getProductName(), data.getProductCategory(), data.getPrice());
+                        "🔄 [CONSUMER] Processing PRODUCT_UPDATED - ID: {}, Name: {}, Category: {} ({}), Price: {}",
+                        data.getProductId(), data.getProductName(),
+                        data.getProductCategoryName(), data.getProductCategoryId(), data.getPrice());
                     productIndexService.indexProduct(toRequest(data));
                     log.info("✅ [CONSUMER] Successfully updated product - ID: {}, Name: {}",
                         data.getProductId(), data.getProductName());
@@ -65,7 +68,9 @@ public class ProductEventConsumer {
         return new ProductIndexRequest(
             data.getProductId(),
             data.getProductName(),
-            data.getProductCategory(),
+            data.getProductCategoryId(),
+            data.getProductCategoryCode(),
+            data.getProductCategoryName(),
             data.getPrice(),
             data.getStatus());
     }

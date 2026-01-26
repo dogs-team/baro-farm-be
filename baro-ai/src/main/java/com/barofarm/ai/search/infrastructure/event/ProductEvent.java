@@ -31,7 +31,9 @@ public class ProductEvent {
     public static class ProductEventData {
         private UUID productId;
         private String productName;
-        private String productCategory;
+        private UUID productCategoryId;
+        private String productCategoryCode;
+        private String productCategoryName;
         private Long price;
         private String status;
         private Instant updatedAt;

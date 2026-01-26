@@ -1,19 +1,16 @@
 package com.barofarm.ai.season.infrastructure.knowledge;
 
 import com.barofarm.ai.season.application.dto.SeasonalityDetectionResponse;
-import com.barofarm.ai.season.infrastructure.elasticsearch.SeasonalityKeywordDocument;
-import com.barofarm.ai.season.infrastructure.elasticsearch.SeasonalityKeywordRepository;
 import com.barofarm.ai.season.infrastructure.embedding.SeasonalityKnowledgeDocument;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.time.Instant;
 import java.util.List;
-import java.util.Optional;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.document.Document;
+import org.springframework.ai.vectorstore.SearchRequest;
 import org.springframework.ai.vectorstore.VectorStore;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
@@ -25,24 +22,20 @@ import org.springframework.stereotype.Service;
  * 제철 지식 데이터 저장 서비스
  *
  * LLM으로 생성된 데이터를 다음 위치에 저장:
- * 1. Elasticsearch 키워드 인덱스
- * 2. VectorStore
- * 3. CSV 파일
+ * 1. VectorStore
+ * 2. CSV 파일
  */
 @Slf4j
 @Service
 @ConditionalOnProperty(name = "seasonality.rag.enabled", havingValue = "true", matchIfMissing = false)
 public class SeasonalityKnowledgeStoreService {
 
-    private final Optional<SeasonalityKeywordRepository> keywordRepository;
     private final VectorStore vectorStore;
     private final String csvFilePath;
 
     public SeasonalityKnowledgeStoreService(
-            Optional<SeasonalityKeywordRepository> keywordRepository,
             @Qualifier("seasonalityVectorStore") VectorStore vectorStore,
             @Value("${seasonality.csv.path:/mnt/s3/dataset/season/seasonality-data.csv}") String csvFilePath) {
-        this.keywordRepository = keywordRepository;
         this.vectorStore = vectorStore;
         this.csvFilePath = csvFilePath;
     }
@@ -61,24 +54,15 @@ public class SeasonalityKnowledgeStoreService {
             SeasonalityDetectionResponse response) {
 
         try {
-            // 중복 체크
-            if (keywordRepository.isPresent() &&
-                keywordRepository.get().existsByProductNameAndCategory(detectedProductName, category)) {
+            // 중복 체크: VectorStore에서 동일한 productName과 category가 있는지 확인
+            if (isDuplicate(detectedProductName, category)) {
                 log.debug("이미 존재하는 데이터: {} ({})", detectedProductName, category);
-                return;
-            }
-
-            // Repository가 없으면 저장 불가
-            if (keywordRepository.isEmpty()) {
-                log.warn("SeasonalityKeywordRepository가 없어 저장할 수 없습니다: {} ({})",
-                    detectedProductName, category);
                 return;
             }
 
             String seasonalityType = response.seasonalityType().name();
             String seasonalityValue = response.seasonalityValue();
             double confidence = response.confidence();
-            Instant now = Instant.now();
 
             // LLM이 판단한 농장체험 가능 여부 사용
             String farmExperienceNote =
@@ -86,17 +70,11 @@ public class SeasonalityKnowledgeStoreService {
                     ? response.farmExperienceNote()
                     : "농장체험 가능";  // LLM 응답이 없으면 기본값
 
-            // 1. Elasticsearch 키워드 인덱스에 저장
-            if (keywordRepository.isPresent()) {
-                saveToElasticsearchIndex(detectedProductName, category, seasonalityType,
-                                       seasonalityValue, confidence, now);
-            }
-
-            // 2. VectorStore에 저장
+            // 1. VectorStore에 저장
             saveToVectorStore(detectedProductName, category, seasonalityType,
                             seasonalityValue, confidence);
 
-            // 3. CSV 파일에 추가 (농장체험 가능 여부 포함)
+            // 2. CSV 파일에 추가 (농장체험 가능 여부 포함)
             appendToCsvFile(detectedProductName, category, seasonalityType,
                           seasonalityValue, response.reasoning(), farmExperienceNote);
 
@@ -109,35 +87,35 @@ public class SeasonalityKnowledgeStoreService {
     }
 
     /**
-     * Elasticsearch 키워드 인덱스에 저장
+     * VectorStore에서 중복 체크
+     *
+     * @param productName 상품명
+     * @param category 카테고리
+     * @return 중복 여부
      */
-    private void saveToElasticsearchIndex(
-            String productName,
-            String category,
-            String seasonalityType,
-            String seasonalityValue,
-            double confidence,
-            Instant now) {
-
+    private boolean isDuplicate(String productName, String category) {
         try {
-            String id = SeasonalityKeywordDocument.generateId(productName, category);
+            // VectorStore에서 동일한 productName과 category로 검색
+            String query = String.format("%s %s", productName, category);
+            SearchRequest searchRequest = SearchRequest.builder()
+                .query(query)
+                .topK(10)  // 상위 10개 결과 확인
+                .build();
 
-            SeasonalityKeywordDocument document = new SeasonalityKeywordDocument(
-                id,
-                productName,
-                category,
-                seasonalityType,
-                seasonalityValue,
-                "LLM_GENERATED",
-                confidence,
-                now
-            );
+            List<Document> documents = vectorStore.similaritySearch(searchRequest);
 
-            keywordRepository.get().save(document);
-            log.debug("Elasticsearch 키워드 인덱스 저장 완료: {}", id);
-
+            // 검색 결과에서 정확히 일치하는 productName과 category가 있는지 확인
+            return documents.stream()
+                .anyMatch(doc -> {
+                    var metadata = doc.getMetadata();
+                    String docProductName = (String) metadata.getOrDefault("productName", "");
+                    String docCategory = (String) metadata.getOrDefault("category", "");
+                    return productName.equals(docProductName) && category.equals(docCategory);
+                });
         } catch (Exception e) {
-            log.error("Elasticsearch 키워드 인덱스 저장 실패: {} ({})", productName, category, e);
+            log.warn("중복 체크 중 오류 발생: {} ({})", productName, category, e);
+            // 오류 발생 시 중복이 아닌 것으로 간주하여 저장 진행
+            return false;
         }
     }
 
@@ -243,51 +221,4 @@ public class SeasonalityKnowledgeStoreService {
                     .trim();
     }
 
-    /**
-     * 농장체험 가능 여부 판단
-     *
-     * 상품명, 카테고리, reasoning을 분석하여 농장체험 가능 여부를 판단
-     *
-     * @param productName 상품명
-     * @param category 카테고리
-     * @param reasoning LLM의 reasoning (제철 설명)
-     * @return "농장체험 가능" 또는 "농장체험 불가"
-     */
-    private String determineFarmExperienceNote(String productName, String category, String reasoning) {
-        if (productName == null) {
-            return "농장체험 불가";
-        }
-
-        String lowerProductName = productName.toLowerCase();
-        String lowerReasoning = reasoning != null ? reasoning.toLowerCase() : "";
-
-        // 농장체험 불가 키워드 체크
-        // 수입 과일, 열대 과일, 특수 작물 등
-        String[] farmExperienceImpossibleKeywords = {
-            "수입", "열대", "아열대", "수입과일", "수입 과일",
-            "두리안", "구아바", "망고", "파파야", "코코넛",
-            "바나나", "파인애플", "키위", "아보카도"
-        };
-
-        // reasoning에서 농장체험 불가 키워드 확인
-        for (String keyword : farmExperienceImpossibleKeywords) {
-            if (lowerReasoning.contains(keyword) || lowerProductName.contains(keyword)) {
-                log.debug("농장체험 불가 판단: {} (키워드: {})", productName, keyword);
-                return "농장체험 불가";
-            }
-        }
-
-        // 카테고리 기반 판단
-        // FRUIT, VEGETABLE, ROOT, GRAIN, MUSHROOM 등은 일반적으로 농장체험 가능
-        // ETC는 경우에 따라 다름
-        if ("ETC".equalsIgnoreCase(category)) {
-            // ETC 카테고리는 추가 판단 필요
-            // 기본적으로 가능으로 설정하되, 키워드로 재확인
-            return "농장체험 가능";
-        }
-
-        // 기본적으로 농장체험 가능
-        log.debug("농장체험 가능 판단: {} ({})", productName, category);
-        return "농장체험 가능";
-    }
 }
