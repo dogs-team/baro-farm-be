@@ -2,6 +2,7 @@ package com.barofarm.auth.infrastructure.oauth;
 
 import com.barofarm.auth.domain.oauth.OAuthProvider;
 import com.barofarm.auth.domain.oauth.OAuthUserInfo;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
@@ -11,6 +12,7 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.client.RestClient;
 
 @Component
+@Slf4j
 public class KakaoOAuthClient implements OAuthProviderHandler {
 
     private final KakaoOAuthProperties properties;
@@ -54,6 +56,7 @@ public class KakaoOAuthClient implements OAuthProviderHandler {
         form.add("client_id", properties.getClientId());
         form.add("code", code);
         form.add("redirect_uri", properties.getRedirectUri());
+        log.info("Requesting Kakao access token. redirectUri={}", properties.getRedirectUri());
         if (StringUtils.hasText(properties.getClientSecret())) {
             form.add("client_secret", properties.getClientSecret());
         }

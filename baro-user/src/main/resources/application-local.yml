@@ -31,7 +31,7 @@ spring:
   jpa:
     hibernate:
       ddl-auto: update
-    show-sql: true
+    show-sql: false
   mail:
     host: smtp.naver.com
     port: 465
@@ -76,10 +76,15 @@ oauth:
   kakao:
     client-id: ${BARO_USER_KAKAO_CLIENT_ID:}
     client-secret: ${BARO_USER_KAKAO_CLIENT_SECRET:}
-    redirect-uri: ${BARO_USER_KAKAO_REDIRECT_URI:http://localhost:8087/api/v1/auth/oauth/callback?provider=kakao}
+    redirect-uri: ${BARO_USER_KAKAO_REDIRECT_URI:http://localhost:3000/oauth/kakao/callback}
     token-uri: ${BARO_USER_KAKAO_TOKEN_URI:https://kauth.kakao.com/oauth/token}
     user-info-uri: ${BARO_USER_KAKAO_USERINFO_URI:https://kapi.kakao.com/v2/user/me}
 
 opa:
   kafka:
     topic: ${BARO_USER_OPA_HOTLIST_TOPIC:opa-hotlist-events}
+
+logging:
+  level:
+    org.apache.kafka: ERROR
+    org.springframework.kafka: ERROR
