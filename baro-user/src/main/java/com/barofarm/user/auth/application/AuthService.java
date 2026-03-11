@@ -294,8 +294,12 @@ public class AuthService {
         publishUserStateEvent(user, userState, reason);
     }
 
-    // Admin-controlled seller status updates (APPROVED/REJECTED/SUSPENDED).
-    public void updateSellerStatus(UUID sellerId, SellerStatus status, String reason) {
+    /*
+     * seller 도메인에서 내부 상태를 먼저 반영한 뒤 호출하는 auth 후처리 유스케이스다.
+     * 같은 서비스 내부 seller 상태 동기화는 직접 처리하고,
+     * 여기서는 권한 갱신과 OPA 전파만 담당한다.
+     */
+    public void handleSellerStatusChanged(UUID sellerId, SellerStatus status, String reason) {
         User user = userRepository.findById(sellerId)
             .orElseThrow(() -> new CustomException(AuthErrorCode.USER_NOT_FOUND));
 
