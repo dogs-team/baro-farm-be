@@ -74,6 +74,10 @@ public class User extends BaseEntity{
         this.userType = UserType.SELLER;
     }
 
+    public void changeToAdmin() {
+        this.userType = UserType.ADMIN;
+    }
+
     public void changeState(UserState userState) {
         if (userState != null) {
             this.userState = userState;

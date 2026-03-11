@@ -12,6 +12,7 @@ import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
@@ -19,7 +20,19 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Component
 @RequiredArgsConstructor
+// auth.outbox.publisher.enabled=true 일 때만 이 스케줄러 빈을 등록한다.
+// 프로퍼티가 없으면(matchIfMissing = true) 기본값은 true 로 간주한다.
+// 즉 운영/테스트 환경에서는 기존 동작을 유지하고, 로컬에서만 false 로 꺼서
+// outbox_event polling SQL 로그를 잠시 숨길 수 있게 만든 설정이다.
+@ConditionalOnProperty(prefix = "auth.outbox.publisher", name = "enabled", havingValue = "true", matchIfMissing = true)
 public class OutboxEventPublisher {
+    /*
+     * 로컬에서 JPA SQL 로그를 켜면 이 스케줄러가 주기적으로 outbox_event를 조회하면서
+     * 같은 SELECT가 계속 출력된다.
+     *
+     * 운영/테스트 환경에서는 기본값(true)으로 두어 Outbox -> Kafka 발행 흐름을 유지하고,
+     * 로컬에서 SQL 확인이 우선일 때만 auth.outbox.publisher.enabled=false 로 비활성화한다.
+     */
 
     private final OutboxEventJpaRepository outboxEventRepository;
     private final KafkaTemplate<String, OutboxEventMessage> kafkaTemplate;
