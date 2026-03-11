@@ -42,14 +42,18 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 @Service
 @Transactional
+@Slf4j
 @RequiredArgsConstructor
 public class AuthService {
 
@@ -310,7 +314,7 @@ public class AuthService {
         }
 
         // [2] OPA hotlist 반영을 위해 seller 상태 이벤트 발행.
-        publishSellerStatusEvent(user.getId(), status, reason);
+        publishSellerStatusEventAfterCommit(user.getId(), status, reason);
     }
 
     public void withdrawUser(UUID userId, WithdrawCommand command) {
@@ -385,6 +389,28 @@ public class AuthService {
         event.setReason(reason);
         event.setUpdatedAt(Instant.now().toString());
         hotlistEventPublisher.publish(event);
+    }
+
+    private void publishSellerStatusEventAfterCommit(UUID sellerId, SellerStatus status, String reason) {
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    publishSellerStatusEventSafely(sellerId, status, reason);
+                }
+            });
+            return;
+        }
+
+        publishSellerStatusEventSafely(sellerId, status, reason);
+    }
+
+    private void publishSellerStatusEventSafely(UUID sellerId, SellerStatus status, String reason) {
+        try {
+            publishSellerStatusEvent(sellerId, status, reason);
+        } catch (Exception ex) {
+            log.error("[AUTH] seller 상태 변경 이후 OPA hotlist 이벤트 전파에 실패했습니다. sellerId={}", sellerId, ex);
+        }
     }
 
     @Transactional(readOnly = true)
