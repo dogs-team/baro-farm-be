@@ -9,7 +9,6 @@ import com.barofarm.auth.exception.AuthErrorCode;
 import com.barofarm.auth.infrastructure.security.AuthUserPrincipal;
 import com.barofarm.auth.infrastructure.security.JwtTokenProvider;
 import com.barofarm.auth.presentation.dto.admin.AdminUserSummaryResponse;
-import com.barofarm.auth.presentation.dto.admin.UpdateSellerStatusRequest;
 import com.barofarm.auth.presentation.dto.admin.UpdateUserStateRequest;
 import com.barofarm.auth.presentation.dto.login.LoginRequest;
 import com.barofarm.auth.presentation.dto.password.PasswordChangeRequest;
@@ -149,17 +148,6 @@ public class AuthController {
     @PostMapping("/{userId}/grant-seller")
     public ResponseEntity<Void> grantSeller(@PathVariable UUID userId) {
         authService.grantSeller(userId);
-        return ResponseEntity.ok().build();
-    }
-
-    // ==== Admin-only seller status updates
-    @PostMapping("/sellers/{userId}/status")
-    @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<Void> updateSellerStatus(
-        @PathVariable UUID userId,
-        @RequestBody UpdateSellerStatusRequest request
-    ) {
-        authService.updateSellerStatus(userId, request.sellerStatus(), request.reason());
         return ResponseEntity.ok().build();
     }
 
