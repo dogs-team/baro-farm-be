@@ -10,6 +10,7 @@ spring:
     redis:
       host: ${SPRING_DATA_REDIS_HOST:${REDIS_HOST:redis}}
       port: ${SPRING_DATA_REDIS_PORT:${REDIS_PORT:6379}}
+      password: ${SPRING_DATA_REDIS_PASSWORD:${REDIS_PASSWORD:}}
       timeout: 2000ms
       lettuce:
         pool:
@@ -86,6 +87,14 @@ spring:
             - Path=/sample-service/**
           filters:
             - RewritePath=/sample-service/(?<seg>.*), /${seg}
+
+        - id: user-service-seller-apply-route
+          uri: http://baro-user:8080
+          predicates:
+            - Path=/user-service/api/v1/sellers/apply
+          filters:
+            - RewritePath=/user-service/(?<seg>.*), /${seg}
+            - Authentication
 
         - id: user-service-route
           uri: http://baro-user:8080

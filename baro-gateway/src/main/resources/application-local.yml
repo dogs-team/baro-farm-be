@@ -8,8 +8,11 @@ spring:
     import: ${BARO_GATEWAY_CONFIG_IMPORT:optional:configserver:http://localhost:8888}
   data:
     redis:
-      host: ${REDIS_HOST:localhost}
-      port: ${REDIS_PORT:6379}
+      # 로컬 개발에서는 호스트 OS Redis와 Docker Redis가 동시에 떠 있을 수 있다.
+      # Gateway RateLimiter는 Docker Redis(baro-redis)의 포트 포워딩(6380)으로 고정한다.
+      host: ${REDIS_HOST:127.0.0.1}
+      port: ${REDIS_PORT:6380}
+      password: ${SPRING_DATA_REDIS_PASSWORD:${REDIS_PASSWORD:redis123}}
   http:
     codecs:
       max-in-memory-size: 2MB
@@ -77,6 +80,14 @@ spring:
 #              enabled: true
 #              lower-case-service-id: true
           routes:
+            - id: user-service-seller-apply-route
+              uri: http://localhost:${BARO_USER_PORT:8087}          # IDE?먯꽌 ?ㅽ뻾 以묒씤 baro-user
+              predicates:
+                - Path=/user-service/api/v1/sellers/apply
+              filters:
+                - RewritePath=/user-service/(?<seg>.*), /${seg}
+                - Authentication
+
             - id: user-service-route
               uri: http://localhost:${BARO_USER_PORT:8087}          # IDE에서 실행 중인 baro-user
               predicates:
