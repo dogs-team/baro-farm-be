@@ -14,8 +14,10 @@ spring:
   datasource:
     url: ${BARO_USER_DATASOURCE_URL:jdbc:mysql://localhost:3307/baro_user?useSSL=false&serverTimezone=Asia/Seoul&allowPublicKeyRetrieval=true&useUnicode=true}
     driver-class-name: com.mysql.cj.jdbc.Driver
-    username: ${BARO_USER_DB_USERNAME:}
-    password: ${BARO_USER_DB_PASSWORD:}
+    # 로컬 Docker MySQL 기본 계정에 맞춘다.
+    # 별도 환경 변수를 주지 않으면 docker-compose.data.yml의 barouser/baropassword를 사용한다.
+    username: ${BARO_USER_DB_USERNAME:barouser}
+    password: ${BARO_USER_DB_PASSWORD:baropassword}
   kafka:
     bootstrap-servers: ${BARO_USER_KAFKA_BOOTSTRAP_SERVERS:localhost:29092}
     consumer:

@@ -8,7 +8,9 @@ import com.barofarm.user.seller.presentation.dto.admin.AdminSellerApplicationRes
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -32,11 +34,40 @@ public class SellerAdminService {
         Status sellerStatus,
         Pageable pageable
     ) {
-        return sellerJpaRepository.findAdminSellerApplications(sellerStatus, pageable);
+        return sellerJpaRepository.findAdminSellerApplications(
+            sellerStatus,
+            normalizePageable(pageable)
+        );
     }
 
     @Transactional
     public void updateSellerStatus(UUID userId, SellerStatus sellerStatus, String reason) {
         authService.updateSellerStatus(userId, sellerStatus, reason);
+    }
+
+    private Pageable normalizePageable(Pageable pageable) {
+        if (pageable == null || pageable.getSort().isUnsorted()) {
+            return pageable;
+        }
+
+        /*
+         * 관리자 화면은 DTO 필드명(userId, sellerStatus) 기준으로 정렬을 요청할 수 있다.
+         * 하지만 JPA Pageable 정렬은 엔티티 필드명(id, status) 기준으로 해석되므로
+         * 여기서 목록 전용 정렬 키를 엔티티 필드명으로 보정한다.
+         */
+        Sort normalizedSort = Sort.by(
+            pageable.getSort().stream()
+                .map(order -> new Sort.Order(order.getDirection(), mapSortProperty(order.getProperty())))
+                .toList()
+        );
+        return PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(), normalizedSort);
+    }
+
+    private String mapSortProperty(String property) {
+        return switch (property) {
+            case "userId" -> "id";
+            case "sellerStatus" -> "status";
+            default -> property;
+        };
     }
 }
