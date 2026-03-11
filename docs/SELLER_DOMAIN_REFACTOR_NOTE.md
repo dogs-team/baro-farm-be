@@ -2,32 +2,65 @@
 
 ## 왜 정리했는가
 
-`baro-user`는 물리적으로 하나의 서비스지만, 논리적으로는 서로 다른 두 도메인을 함께 담고 있다.
+`baro-user`는 배포 단위로는 하나의 서비스지만, 내부에는 성격이 다른 하위 도메인이 함께 들어 있다.
 
 - `auth`: 회원가입, 로그인, 비밀번호, 토큰, OAuth, 계정 상태
-- `seller`: 판매자 신청, 판매자 프로필, 판매자 신청 상태, 승인/거절/정지
+- `seller`: 판매자 신청, 판매자 프로필, 판매자 신청 상태, 관리자 승인/거절/정지
 
-기존에는 판매자 관리자 기능이 `AuthController` 안에 섞여 있어,
-판매자 신청 목록 조회와 상태 변경의 소유권이 `auth`에 있는 것처럼 보였다.
-DDD / 클린 아키텍처 관점에서는 이 책임이 seller 도메인에 있는 편이 더 자연스럽다.
+기존에는 판매자 관리자 기능 일부가 `auth` 쪽 컨트롤러에 들어가 있어서 책임 경계가 흐려져 있었다.
+DDD와 클린 아키텍처 관점에서는 판매자 신청 목록 조회와 판매자 상태 변경은 seller 도메인이 소유하는 편이 더 자연스럽다.
 
 ## 이번 리팩터링 범위
 
-- 관리자용 판매자 신청 목록 조회 API를 `seller.presentation.SellerAdminController`로 이동
-- 관리자용 판매자 상태 변경 API도 seller 쪽 controller로 이동
-- 관리자 대시보드용 응답 모델을 `seller.presentation.dto.admin`에 분리
-- seller 도메인의 조회 유스케이스를 `seller.application.SellerAdminService`로 분리
+- 루트 패키지를 `com.barofarm.user`로 정리
+- `UserApplication`을 서비스 루트인 `com.barofarm.user` 바로 아래로 이동
+- auth 패키지를 `com.barofarm.user.auth`로 이동
+- seller 패키지를 `com.barofarm.user.seller`로 이동
+- 관리자용 판매자 신청 목록 조회 API를 seller 도메인으로 배치
+- 관리자용 판매자 상태 변경 API를 seller 도메인으로 배치
 
-## 경계 판단
+## 최종 패키지 구조
 
-- `GET /api/v1/auth/admin/users` 는 계정 관리용 auth API로 유지
-- 판매자 신청 목록은 seller 도메인의 read model로 별도 제공
-- 관리자 대시보드에서 필요한 seller 관련 조회/상태변경은 seller가 소유
+```text
+com.barofarm.user
+├─ UserApplication
+├─ auth
+│  ├─ application
+│  ├─ common
+│  ├─ domain
+│  ├─ exception
+│  ├─ infrastructure
+│  └─ presentation
+└─ seller
+   ├─ application
+   ├─ config
+   ├─ domain
+   ├─ exception
+   ├─ infrastructure
+   └─ presentation
+```
+
+## API 경계 정리
+
+- `GET /api/v1/auth/admin/users`
+  - 계정 관리 중심의 auth 관리자 API
+- `GET /api/v1/admin/sellers/applications`
+  - 관리자 화면용 판매자 신청 목록 조회 API
+- `POST /api/v1/admin/sellers/{userId}/status`
+  - 관리자 화면용 판매자 상태 변경 API
+- `POST /api/v1/sellers/apply`
+  - 판매자 신청 API
+- `GET /api/v1/sellers/sellerInfo/{userId}`
+  - 판매자 단건 조회 API
+- `POST /api/v1/sellers/sellerInfo/bulks`
+  - 판매자 일괄 조회 API
+
+즉 판매자 신청과 판매자 관리자 기능은 seller 도메인이 소유하고, 계정 자체의 인증과 계정 상태는 auth 도메인이 소유하도록 정리했다.
 
 ## 과도기 메모
 
-현재 seller 상태 변경은 여전히 `AuthService.updateSellerStatus(...)`를 호출한다.
-이유는 권한 승격과 OPA hotlist 반영 로직이 아직 auth 쪽에 있기 때문이다.
+현재 판매자 상태 변경은 내부적으로 `AuthService.updateSellerStatus(...)`를 호출한다.
+이유는 판매자 승인 시 사용자 역할 승격과 OPA hotlist 반영 로직이 아직 auth 쪽에 있기 때문이다.
 
-즉 이번 변경은 controller / use case 경계를 먼저 정리한 1차 리팩터링이고,
-다음 단계에서는 seller가 auth에 직접 의존하지 않도록 포트/파사드로 끊어내는 작업이 필요하다.
+이번 변경은 우선 진입점과 유스케이스 소유권을 seller 도메인으로 옮기는 1차 정리다.
+다음 단계에서는 seller가 auth 내부 구현을 직접 호출하지 않도록 포트나 퍼사드로 의존 방향을 정리할 필요가 있다.
