@@ -19,7 +19,9 @@ spring:
     username: ${BARO_USER_DB_USERNAME:barouser}
     password: ${BARO_USER_DB_PASSWORD:baropassword}
   kafka:
-    bootstrap-servers: ${BARO_USER_KAFKA_BOOTSTRAP_SERVERS:localhost:29092}
+    # 로컬 IDE에서 실행하는 애플리케이션은 Docker Kafka의 외부 리스너(localhost:9092)에 붙어야 한다.
+    # 29092는 컨테이너 내부 통신용 리스너라서 호스트에서 직접 접근하면 연결이 실패할 수 있다.
+    bootstrap-servers: ${BARO_USER_KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
     consumer:
       group-id: user-service
       key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
@@ -79,7 +81,10 @@ auth:
   cookie:
     access-name: access_token
     refresh-name: refresh_token
-    secure: ${BARO_USER_AUTH_COOKIE_SECURE:true}
+    # 로컬은 http://localhost 기반으로 프런트와 백엔드가 뜨므로 Secure=true 이면
+    # 브라우저가 인증 쿠키를 저장/전송하지 않을 수 있다.
+    # 운영은 HTTPS를 전제로 Secure=true를 유지하고, 로컬만 기본값을 false로 둔다.
+    secure: ${BARO_USER_AUTH_COOKIE_SECURE:false}
     same-site: Strict
     path: /
     domain: ${BARO_USER_AUTH_COOKIE_DOMAIN:}
