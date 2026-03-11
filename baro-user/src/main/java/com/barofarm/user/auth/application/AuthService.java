@@ -69,6 +69,7 @@ public class AuthService {
     private final OAuthProviderClient oauthProviderClient;
     private final OAuthStateStore oauthStateStore;
     private final HotlistEventPublisher hotlistEventPublisher;
+    private final OpaHotlistAsyncPublisher opaHotlistAsyncPublisher;
     private final OutboxEventService outboxEventService;
     private final Clock clock;
 
@@ -396,13 +397,18 @@ public class AuthService {
             TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
                 @Override
                 public void afterCommit() {
-                    publishSellerStatusEventSafely(sellerId, status, reason);
+                    /*
+                     * 커밋 이후에도 같은 요청 스레드에서 Kafka를 보내면
+                     * 게이트웨이 응답 타임아웃(504)로 이어질 수 있다.
+                     * 그래서 afterCommit 시점에 비동기 publisher로 넘겨 응답 경로와 분리한다.
+                     */
+                    opaHotlistAsyncPublisher.publishSellerStatusEvent(sellerId.toString(), status, reason);
                 }
             });
             return;
         }
 
-        publishSellerStatusEventSafely(sellerId, status, reason);
+        opaHotlistAsyncPublisher.publishSellerStatusEvent(sellerId.toString(), status, reason);
     }
 
     private void publishSellerStatusEventSafely(UUID sellerId, SellerStatus status, String reason) {
