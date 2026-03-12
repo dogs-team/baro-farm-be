@@ -19,7 +19,7 @@ spec:
         - name: ecr-registry
       containers:
         - name: baro-shopping
-          image: 299369991605.dkr.ecr.ap-northeast-2.amazonaws.com/baro-prod/baro-shopping:latest
+          image: 299369991605.dkr.ecr.ap-northeast-2.amazonaws.com/baro-prod/baro-shopping:sha-df9a50e
           imagePullPolicy: Always
           ports:
             - containerPort: 8082

@@ -1,7 +1,9 @@
-name: baro-notification Deploy (ECR + k3s)
+name: baro-notification Deploy (ECR + ArgoCD)
 
 on:
   push:
+    branches:
+      - main
     paths:
       - 'baro-notification/**'
       - 'docker/baro-notification/**'
@@ -20,11 +22,13 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       id-token: write
-      contents: read
+      contents: write
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Set up JDK 21
         uses: actions/setup-java@v4
@@ -63,45 +67,19 @@ jobs:
           docker push $IMAGE_URI
           docker push ${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:latest
 
-      - name: Install kubectl
-        uses: azure/setup-kubectl@v3
-
-      - name: Set up kubeconfig
-        run: |
-          echo "${{ secrets.KUBE_CONFIG }}" | base64 -d > kubeconfig
-          echo "KUBECONFIG=$(pwd)/kubeconfig" >> $GITHUB_ENV
-
-      - name: Create ECR image pull secret
-        run: |
-          kubectl --insecure-skip-tls-verify create secret docker-registry ecr-registry \
-            --docker-server=${{ env.ECR_REGISTRY }} \
-            --docker-username=AWS \
-            --docker-password="$(aws ecr get-login-password --region ${{ env.AWS_REGION }})" \
-            -n ${{ env.K8S_NAMESPACE }} \
-            --dry-run=client -o yaml | kubectl --insecure-skip-tls-verify apply -f -
-
-      - name: Deploy to k3s
+      - name: Update deployment image tag
         env:
           IMAGE_TAG: ${{ steps.image-tag.outputs.tag }}
-          FULL_IMAGE: ${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:${{ steps.image-tag.outputs.tag }}
         run: |
-          # MySQL 애플리케이션 계정 Secret (baro_notification DB 접근용, 공통 mysql-credentials 사용)
-          kubectl --insecure-skip-tls-verify create secret generic mysql-credentials \
-            --from-literal=username=baro_user \
-            --from-literal=password=${{ secrets.MYSQL_APP_PASSWORD }} \
-            -n ${{ env.K8S_NAMESPACE }} \
-            --dry-run=client -o yaml | kubectl --insecure-skip-tls-verify apply -f -
+          sed -i "s#image: ${ECR_REGISTRY}/${ECR_REPOSITORY}:.*#image: ${ECR_REGISTRY}/${ECR_REPOSITORY}:${IMAGE_TAG}#g" k8s/apps/baro-notification/deployment.yml
 
-          # baro-notification 전용 Secret (SMTP 메일 발송용)
-          kubectl --insecure-skip-tls-verify create secret generic baro-notification-secrets \
-            --from-literal=BARO_NOTI_MAIL_USERNAME="${{ secrets.BARO_NOTI_MAIL_USERNAME }}" \
-            --from-literal=BARO_NOTI_MAIL_PASSWORD="${{ secrets.BARO_NOTI_MAIL_PASSWORD }}" \
-            -n ${{ env.K8S_NAMESPACE }} \
-            --dry-run=client -o yaml | kubectl --insecure-skip-tls-verify apply -f -
-
-          # 공통 ConfigMap (infra-endpoints-config) 적용
-          kubectl --insecure-skip-tls-verify apply -f k8s/apps/common/ -n ${{ env.K8S_NAMESPACE }}
-
-          kubectl --insecure-skip-tls-verify apply -f k8s/apps/baro-notification/ -n ${{ env.K8S_NAMESPACE }}
-          kubectl --insecure-skip-tls-verify set image deployment/baro-notification baro-notification=$FULL_IMAGE -n ${{ env.K8S_NAMESPACE }}
-          kubectl --insecure-skip-tls-verify rollout status deployment/baro-notification -n ${{ env.K8S_NAMESPACE }} --timeout=120s
+      - name: Commit and push updated deployment
+        env:
+          IMAGE_TAG: ${{ steps.image-tag.outputs.tag }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add k8s/apps/baro-notification/deployment.yml
+          git commit -m "chore(baro-notification): update image tag to ${IMAGE_TAG}" || echo "No changes to commit"
+          git pull --rebase origin main
+          git push

@@ -1,35 +1,68 @@
 global:
-  imageRegistry: public.ecr.aws
+  imagePullSecrets:
+    - ecr-registry
+  security:
+    allowInsecureImages: true
+  osShell:
+    image:
+      repository: bitnami/os-shell
+      tag: latest
 
-fullnameOverride: my-elasticsearch
+elasticsearch:
+  fullnameOverride: my-elasticsearch
 
-master:
-  # single node, not master-only so it can handle all roles
-  masterOnly: false
-  replicaCount: 1
-  persistence:
+  # Use custom image with nori plugin (built from docker/elasticsearch/Dockerfile)
+  image:
+    registry: 299369991605.dkr.ecr.ap-northeast-2.amazonaws.com
+    repository: baro-prod/elasticsearch-nori
+    tag: nori-v2
+    pullPolicy: IfNotPresent
+
+  master:
+    # single node, not master-only so it can handle all roles
+    masterOnly: false
+    replicaCount: 1
+    persistence:
+      enabled: true
+      storageClass: gp3-ebs
+      size: 1Gi
+    resources:
+      requests:
+        cpu: 100m
+        memory: 512Mi
+      limits:
+        cpu: 500m
+        memory: 1Gi
+
+  data:
+    replicaCount: 0
+
+  # Override sysctl init container image to use Docker Hub os-shell
+  sysctlImage:
     enabled: true
-    storageClass: gp3-ebs
-    size: 1Gi
-  resources:
-    requests:
-      cpu: 100m
-      memory: 512Mi
-    limits:
-      cpu: 500m
-      memory: 1Gi
+    registry: docker.io
+    repository: bitnami/os-shell
+    tag: latest
 
-data:
-  replicaCount: 0
+  ingest:
+    replicaCount: 0
 
-ingest:
-  replicaCount: 0
+  coordinating:
+    replicaCount: 0
 
-coordinating:
-  replicaCount: 0
+  security:
+    enabled: false
 
-security:
-  enabled: false
+  metrics:
+    enabled: false
 
-metrics:
-  enabled: false
+  # Initialize application indices with the "nori" analyzer.
+  initIndices:
+    enabled: true
+    image: curlimages/curl:8.11.0
+    host: http://my-elasticsearch.search.svc.cluster.local:9200
+    indices:
+      - cart_event_logs
+      - order_event_logs
+      - search_logs
+      - product

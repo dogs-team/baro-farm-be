@@ -19,7 +19,7 @@ spec:
         - name: ecr-registry
       containers:
         - name: baro-order
-          image: 299369991605.dkr.ecr.ap-northeast-2.amazonaws.com/baro-prod/baro-order:latest
+          image: 299369991605.dkr.ecr.ap-northeast-2.amazonaws.com/baro-prod/baro-order:sha-df9a50e
           imagePullPolicy: Always
           ports:
             - containerPort: 8083

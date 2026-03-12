@@ -1,7 +1,9 @@
-name: baro-user Deploy (ECR + k3s)
+name: baro-user Deploy (ECR + ArgoCD)
 
 on:
   push:
+    branches:
+      - main
     paths:
       - 'baro-user/**'
       - 'docker/baro-user/**'
@@ -20,11 +22,13 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       id-token: write
-      contents: read
+      contents: write
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Set up JDK 21
         uses: actions/setup-java@v4
@@ -63,52 +67,19 @@ jobs:
           docker push $IMAGE_URI
           docker push ${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:latest
 
-      - name: Install kubectl
-        uses: azure/setup-kubectl@v3
-
-      - name: Set up kubeconfig
-        run: |
-          echo "${{ secrets.KUBE_CONFIG }}" | base64 -d > kubeconfig
-          echo "KUBECONFIG=$(pwd)/kubeconfig" >> $GITHUB_ENV
-
-      - name: Create ECR image pull secret
-        run: |
-          kubectl --insecure-skip-tls-verify create secret docker-registry ecr-registry \
-            --docker-server=${{ env.ECR_REGISTRY }} \
-            --docker-username=AWS \
-            --docker-password="$(aws ecr get-login-password --region ${{ env.AWS_REGION }})" \
-            -n ${{ env.K8S_NAMESPACE }} \
-            --dry-run=client -o yaml | kubectl --insecure-skip-tls-verify apply -f -
-
-      - name: Deploy to k3s
+      - name: Update deployment image tag
         env:
           IMAGE_TAG: ${{ steps.image-tag.outputs.tag }}
-          FULL_IMAGE: ${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:${{ steps.image-tag.outputs.tag }}
         run: |
-          # MySQL 애플리케이션 계정 Secret (baro-sample과 동일한 mysql-credentials 사용)
-          kubectl --insecure-skip-tls-verify create secret generic mysql-credentials \
-            --from-literal=username=baro_user \
-            --from-literal=password=${{ secrets.MYSQL_APP_PASSWORD }} \
-            -n ${{ env.K8S_NAMESPACE }} \
-            --dry-run=client -o yaml | kubectl --insecure-skip-tls-verify apply -f -
+          sed -i "s#image: ${ECR_REGISTRY}/${ECR_REPOSITORY}:.*#image: ${ECR_REGISTRY}/${ECR_REPOSITORY}:${IMAGE_TAG}#g" k8s/apps/baro-user/deployment.yml
 
-          kubectl --insecure-skip-tls-verify create secret generic redis-credentials \
-            --from-literal=password=${{ secrets.REDIS_PASSWORD }} \
-            -n ${{ env.K8S_NAMESPACE }} \
-            --dry-run=client -o yaml | kubectl --insecure-skip-tls-verify apply -f -
-
-          # baro-user 전용 Secret (JWT, 메일, OAuth)
-          kubectl --insecure-skip-tls-verify create secret generic baro-user-secrets \
-            --from-literal=BARO_USER_JWT_SECRET="${{ secrets.BARO_USER_JWT_SECRET }}" \
-            --from-literal=BARO_USER_MAIL_USERNAME="${{ secrets.BARO_USER_MAIL_USERNAME }}" \
-            --from-literal=BARO_USER_MAIL_PASSWORD="${{ secrets.BARO_USER_MAIL_PASSWORD }}" \
-            --from-literal=BARO_USER_KAKAO_CLIENT_ID="${{ secrets.BARO_USER_KAKAO_CLIENT_ID }}" \
-            -n ${{ env.K8S_NAMESPACE }} \
-            --dry-run=client -o yaml | kubectl --insecure-skip-tls-verify apply -f -
-
-          # 공통 ConfigMap (infra-endpoints-config) 적용
-          kubectl --insecure-skip-tls-verify apply -f k8s/apps/common/ -n ${{ env.K8S_NAMESPACE }}
-
-          kubectl --insecure-skip-tls-verify apply -f k8s/apps/baro-user/ -n ${{ env.K8S_NAMESPACE }}
-          kubectl --insecure-skip-tls-verify set image deployment/baro-user baro-user=$FULL_IMAGE -n ${{ env.K8S_NAMESPACE }}
-          kubectl --insecure-skip-tls-verify rollout status deployment/baro-user -n ${{ env.K8S_NAMESPACE }} --timeout=120s
+      - name: Commit and push updated deployment
+        env:
+          IMAGE_TAG: ${{ steps.image-tag.outputs.tag }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add k8s/apps/baro-user/deployment.yml
+          git commit -m "chore(baro-user): update image tag to ${IMAGE_TAG}" || echo "No changes to commit"
+          git pull --rebase origin main
+          git push

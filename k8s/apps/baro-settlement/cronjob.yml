@@ -25,7 +25,7 @@ spec:
             - name: ecr-registry
           containers:
             - name: baro-settlement
-              image: 299369991605.dkr.ecr.ap-northeast-2.amazonaws.com/baro-prod/baro-settlement:latest
+              image: 299369991605.dkr.ecr.ap-northeast-2.amazonaws.com/baro-prod/baro-settlement:sha-df9a50e
               imagePullPolicy: Always
               envFrom:
                 - configMapRef:

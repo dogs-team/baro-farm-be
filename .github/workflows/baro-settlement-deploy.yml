@@ -1,7 +1,9 @@
-name: baro-settlement Deploy (ECR + k3s)
+name: baro-settlement Deploy (ECR + ArgoCD)
 
 on:
   push:
+    branches:
+      - main
     paths:
       - 'baro-settlement/**'
       - 'docker/baro-settlement/**'
@@ -20,11 +22,13 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       id-token: write
-      contents: read
+      contents: write
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Set up JDK 21
         uses: actions/setup-java@v4
@@ -63,33 +67,19 @@ jobs:
           docker push $IMAGE_URI
           docker push ${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:latest
 
-      - name: Install kubectl
-        uses: azure/setup-kubectl@v3
-
-      - name: Set up kubeconfig
+      - name: Update cronjob image tag
+        env:
+          IMAGE_TAG: ${{ steps.image-tag.outputs.tag }}
         run: |
-          echo "${{ secrets.KUBE_CONFIG }}" | base64 -d > kubeconfig
-          echo "KUBECONFIG=$(pwd)/kubeconfig" >> $GITHUB_ENV
+          sed -i "s#image: ${ECR_REGISTRY}/${ECR_REPOSITORY}:.*#image: ${ECR_REGISTRY}/${ECR_REPOSITORY}:${IMAGE_TAG}#g" k8s/apps/baro-settlement/cronjob.yml
 
-      - name: Create ECR image pull secret
+      - name: Commit and push updated cronjob
+        env:
+          IMAGE_TAG: ${{ steps.image-tag.outputs.tag }}
         run: |
-          kubectl --insecure-skip-tls-verify create secret docker-registry ecr-registry \
-            --docker-server=${{ env.ECR_REGISTRY }} \
-            --docker-username=AWS \
-            --docker-password="$(aws ecr get-login-password --region ${{ env.AWS_REGION }})" \
-            -n ${{ env.K8S_NAMESPACE }} \
-            --dry-run=client -o yaml | kubectl --insecure-skip-tls-verify apply -f -
-
-      - name: Deploy to k3s
-        run: |
-          # MySQL 애플리케이션 계정 Secret (baro_settlement DB 접근, .prod.example.env MYSQL_APP_PASSWORD)
-          kubectl --insecure-skip-tls-verify create secret generic mysql-credentials \
-            --from-literal=username=baro_user \
-            --from-literal=password=${{ secrets.MYSQL_APP_PASSWORD }} \
-            -n ${{ env.K8S_NAMESPACE }} \
-            --dry-run=client -o yaml | kubectl --insecure-skip-tls-verify apply -f -
-
-          # 공통 ConfigMap (infra-endpoints-config) 적용
-          kubectl --insecure-skip-tls-verify apply -f k8s/apps/common/ -n ${{ env.K8S_NAMESPACE }}
-
-          kubectl --insecure-skip-tls-verify apply -f k8s/apps/baro-settlement/ -n ${{ env.K8S_NAMESPACE }}
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add k8s/apps/baro-settlement/cronjob.yml
+          git commit -m "chore(baro-settlement): update image tag to ${IMAGE_TAG}" || echo "No changes to commit"
+          git pull --rebase origin main
+          git push

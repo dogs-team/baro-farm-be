@@ -1,0 +1,65 @@
+{{- if .Values.elasticsearch.initIndices.enabled }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: es-init-indices
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/name: es-init-indices
+    app.kubernetes.io/instance: es-init-indices
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  template:
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: es-init
+          image: {{ .Values.elasticsearch.initIndices.image | quote }}
+          imagePullPolicy: IfNotPresent
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              set -euo pipefail
+              ES_HOST="{{ .Values.elasticsearch.initIndices.host }}"
+
+              echo "Waiting for Elasticsearch..."
+              until curl -fsS "${ES_HOST}" >/dev/null 2>&1; do
+                echo "  ES not ready yet, retrying..."
+                sleep 3
+              done
+              echo "Elasticsearch is ready"
+
+              create_index() {
+                NAME="$1"
+
+                if curl -fsS "${ES_HOST}/${NAME}" >/dev/null 2>&1; then
+                  echo "Index ${NAME} already exists, skipping"
+                  return
+                fi
+
+                echo "Creating index ${NAME}"
+                curl -fsS -X PUT "${ES_HOST}/${NAME}" \
+                  -H "Content-Type: application/json" \
+                  -d '{
+                    "settings": {
+                      "analysis": {
+                        "analyzer": {
+                          "nori": {
+                            "type": "custom",
+                            "tokenizer": "nori_tokenizer",
+                            "filter": ["lowercase", "nori_part_of_speech", "nori_readingform"]
+                          }
+                        }
+                      }
+                    }
+                  }'
+                echo
+              }
+
+{{- range .Values.elasticsearch.initIndices.indices }}
+              create_index {{ . }}
+{{- end }}
+
+              echo "All indices initialized"
+{{- end }}

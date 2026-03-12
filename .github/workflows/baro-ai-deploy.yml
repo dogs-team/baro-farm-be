@@ -1,7 +1,9 @@
-name: baro-ai Deploy (ECR + k3s)
+name: baro-ai Deploy (ECR + ArgoCD)
 
 on:
   push:
+    branches:
+      - main
     paths:
       - 'baro-ai/**'
       - 'docker/baro-ai/**'
@@ -20,11 +22,13 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       id-token: write
-      contents: read
+      contents: write
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Set up JDK 21
         uses: actions/setup-java@v4
@@ -63,37 +67,19 @@ jobs:
           docker push $IMAGE_URI
           docker push ${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:latest
 
-      - name: Install kubectl
-        uses: azure/setup-kubectl@v3
-
-      - name: Set up kubeconfig
-        run: |
-          echo "${{ secrets.KUBE_CONFIG }}" | base64 -d > kubeconfig
-          echo "KUBECONFIG=$(pwd)/kubeconfig" >> $GITHUB_ENV
-
-      - name: Create ECR image pull secret
-        run: |
-          kubectl --insecure-skip-tls-verify create secret docker-registry ecr-registry \
-            --docker-server=${{ env.ECR_REGISTRY }} \
-            --docker-username=AWS \
-            --docker-password="$(aws ecr get-login-password --region ${{ env.AWS_REGION }})" \
-            -n ${{ env.K8S_NAMESPACE }} \
-            --dry-run=client -o yaml | kubectl --insecure-skip-tls-verify apply -f -
-
-      - name: Deploy to k3s
+      - name: Update deployment image tag
         env:
           IMAGE_TAG: ${{ steps.image-tag.outputs.tag }}
-          FULL_IMAGE: ${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:${{ steps.image-tag.outputs.tag }}
         run: |
-          # baro-ai 전용 Secret (OpenAI API Key)
-          kubectl --insecure-skip-tls-verify create secret generic baro-ai-secrets \
-            --from-literal=BARO_AI_OPENAI_KEY="${{ secrets.BARO_AI_OPENAI_KEY }}" \
-            -n ${{ env.K8S_NAMESPACE }} \
-            --dry-run=client -o yaml | kubectl --insecure-skip-tls-verify apply -f -
+          sed -i "s#image: ${ECR_REGISTRY}/${ECR_REPOSITORY}:.*#image: ${ECR_REGISTRY}/${ECR_REPOSITORY}:${IMAGE_TAG}#g" k8s/apps/baro-ai/deployment.yml
 
-          # 공통 ConfigMap (infra-endpoints-config) 적용
-          kubectl --insecure-skip-tls-verify apply -f k8s/apps/common/ -n ${{ env.K8S_NAMESPACE }}
-
-          kubectl --insecure-skip-tls-verify apply -f k8s/apps/baro-ai/ -n ${{ env.K8S_NAMESPACE }}
-          kubectl --insecure-skip-tls-verify set image deployment/baro-ai baro-ai=$FULL_IMAGE -n ${{ env.K8S_NAMESPACE }}
-          kubectl --insecure-skip-tls-verify rollout status deployment/baro-ai -n ${{ env.K8S_NAMESPACE }} --timeout=120s
+      - name: Commit and push updated deployment
+        env:
+          IMAGE_TAG: ${{ steps.image-tag.outputs.tag }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add k8s/apps/baro-ai/deployment.yml
+          git commit -m "chore(baro-ai): update image tag to ${IMAGE_TAG}" || echo "No changes to commit"
+          git pull --rebase origin main
+          git push
