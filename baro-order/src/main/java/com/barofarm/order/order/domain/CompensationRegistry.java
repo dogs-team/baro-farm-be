@@ -39,4 +39,12 @@ public class CompensationRegistry {
             CompensationRegistryStatus.PENDING
         );
     }
+
+    public boolean isPending() {
+        return this.status == CompensationRegistryStatus.PENDING;
+    }
+
+    public void markComplete() {
+        this.status = CompensationRegistryStatus.COMPLETE;
+    }
 }
