@@ -2,6 +2,9 @@ package com.barofarm.order.order.infrastructure;
 
 import com.barofarm.order.order.domain.Order;
 import com.barofarm.order.order.domain.OrderRepository;
+import com.barofarm.order.order.domain.OrderStatus;
+import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -28,5 +31,10 @@ public class OrderRepositoryAdapter implements OrderRepository {
     @Override
     public Page<Order> findByUserIdOrderByCreatedAtDesc(UUID userId, Pageable pageable) {
         return orderJpaRepository.findByUserIdOrderByCreatedAtDesc(userId, pageable);
+    }
+
+    @Override
+    public List<Order> findTop100ByStatusAndCreatedAtBefore(OrderStatus status, LocalDateTime cutoff) {
+        return orderJpaRepository.findTop100ByStatusAndCreatedAtBeforeOrderByCreatedAtAsc(status, cutoff);
     }
 }

@@ -94,6 +94,10 @@ public class Order extends BaseEntity {
         this.status = OrderStatus.FAILED;
     }
 
+    public void markExpired() {
+        this.status = OrderStatus.EXPIRED;
+    }
+
     public void markConfirmed(){
         this.status = OrderStatus.CONFIRMED;
     }
