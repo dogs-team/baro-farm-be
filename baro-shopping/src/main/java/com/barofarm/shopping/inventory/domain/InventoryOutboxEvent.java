@@ -71,11 +71,23 @@ public class InventoryOutboxEvent extends BaseEntity {
         return new InventoryOutboxEvent(aggregateType, aggregateId, topic, correlationId, payload);
     }
 
+    public void markProcessing() {
+        this.status = InventoryOutboxStatus.PROCESSING;
+        updateTimestamp();
+    }
+
+    public void markPending() {
+        this.status = InventoryOutboxStatus.PENDING;
+        updateTimestamp();
+    }
+
     public void markSent() {
         this.status = InventoryOutboxStatus.SENT;
+        updateTimestamp();
     }
 
     public void markFailed() {
         this.status = InventoryOutboxStatus.FAILED;
+        updateTimestamp();
     }
 }
