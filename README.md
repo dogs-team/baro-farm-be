@@ -1,5 +1,7 @@
 # 🌽 Baro Farm -  백엔드
 > 신선한 농산물을 생산자로부터 소비자에게 직접 연결하는 Farm-to-Table 기반 MSA 이커머스 플랫폼
+>
+> 이 프로젝트는 프로그래머스 데브코스에서 진행한 [기존 프로젝트](https://github.com/prgrms-be-adv-devcourse/beadv2_2_dogs_BE)를 고도화한 버전입니다.
 
 </br>
 
