@@ -70,11 +70,23 @@ public class PaymentOutboxEvent extends BaseEntity {
         return new PaymentOutboxEvent(aggregateType, aggregateId, eventType, correlationId, payload);
     }
 
+    public void markProcessing() {
+        this.status = PaymentOutboxStatus.PROCESSING;
+        updateTimestamp();
+    }
+
+    public void markPending() {
+        this.status = PaymentOutboxStatus.PENDING;
+        updateTimestamp();
+    }
+
     public void markSent() {
         this.status = PaymentOutboxStatus.SENT;
+        updateTimestamp();
     }
 
     public void markFailed() {
         this.status = PaymentOutboxStatus.FAILED;
+        updateTimestamp();
     }
 }

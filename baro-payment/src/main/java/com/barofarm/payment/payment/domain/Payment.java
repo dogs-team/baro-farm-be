@@ -29,7 +29,7 @@ public class Payment extends BaseEntity {
     @Column(name = "payment_key", nullable = false, unique = true, length = 200)
     private String paymentKey;
 
-    @Column(name = "order_id", columnDefinition = "BINARY(16)")
+    @Column(name = "order_id", columnDefinition = "BINARY(16)", unique = true)
     private UUID orderId;
 
     @Column(name = "total_amount", nullable = false)

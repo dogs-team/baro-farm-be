@@ -68,11 +68,23 @@ public class OrderOutboxEvent extends BaseEntity {
         return new OrderOutboxEvent(aggregateType, aggregateId, topic, correlationId, payload);
     }
 
+    public void markProcessing() {
+        this.status = OrderOutboxStatus.PROCESSING;
+        updateTimestamp();
+    }
+
+    public void markPending() {
+        this.status = OrderOutboxStatus.PENDING;
+        updateTimestamp();
+    }
+
     public void markSent() {
         this.status = OrderOutboxStatus.SENT;
+        updateTimestamp();
     }
 
     public void markFailed() {
         this.status = OrderOutboxStatus.FAILED;
+        updateTimestamp();
     }
 }

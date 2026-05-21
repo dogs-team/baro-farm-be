@@ -23,6 +23,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -39,10 +40,18 @@ public class PaymentService {
 
     @Transactional
     public ResponseDto<TossPaymentConfirmInfo> confirmPayment(UUID userId, TossPaymentConfirmCommand command) {
+        Payment existingByPaymentKey = paymentRepository.findByPaymentKey(command.paymentKey())
+            .orElse(null);
+        if (existingByPaymentKey != null) {
+            return ResponseDto.ok(TossPaymentConfirmInfo.from(existingByPaymentKey));
+        }
+
+        validateOrderPaymentNotProcessed(UUID.fromString(command.orderId()));
+
         TossPaymentResponse tossPayment = tossPaymentClient.confirm(command);
 
         Payment payment = Payment.of(userId, tossPayment, ORDER_PAYMENT);
-        Payment saved = paymentRepository.save(payment);
+        Payment saved = saveOrderPayment(payment);
 
         PaymentConfirmedEvent event = new PaymentConfirmedEvent(
             saved.getOrderId(),
@@ -60,13 +69,12 @@ public class PaymentService {
                 payload
             );
             paymentOutboxEventRepository.save(outbox);
-
         } catch (JsonProcessingException e) {
             throw new CustomException(PaymentErrorCode.OUTBOX_SERIALIZATION_FAILED);
         }
+
         return ResponseDto.ok(TossPaymentConfirmInfo.from(saved));
     }
-
 
     @Transactional
     public ResponseDto<TossPaymentConfirmInfo> confirmDeposit(UUID userId, TossPaymentConfirmCommand command) {
@@ -77,7 +85,6 @@ public class PaymentService {
         Payment payment = Payment.of(userId, tossPayment, DEPOSIT_CHARGE);
         Payment saved = paymentRepository.save(payment);
 
-        // 예치금 충전 승인: 같은 모듈 내 DepositService 호출
         depositService.markDepositCharge(userId, chargeId);
 
         return ResponseDto.ok(TossPaymentConfirmInfo.from(saved));
@@ -85,14 +92,13 @@ public class PaymentService {
 
     @Transactional
     public ResponseDto<DepositPaymentInfo> payDeposit(UUID userId, DepositPaymentCommand command) {
-        // 1. 예치금 차감 + 검증
+        validateOrderPaymentNotProcessed(command.orderId());
+
         var deposit = depositService.withdraw(userId, command.amount());
 
-        // 2. 결제 엔티티 생성 (DEPOSIT 결제)
         Payment payment = Payment.of(userId, command.orderId(), command.amount());
-        Payment saved = paymentRepository.save(payment);
+        Payment saved = saveOrderPayment(payment);
 
-        // 3. payment-confirmed outbox 이벤트 생성
         PaymentConfirmedEvent event = new PaymentConfirmedEvent(
             command.orderId(),
             command.amount()
@@ -122,4 +128,20 @@ public class PaymentService {
         );
     }
 
+    private void validateOrderPaymentNotProcessed(UUID orderId) {
+        Payment existingOrderPayment = paymentRepository.findByOrderId(orderId)
+            .orElse(null);
+
+        if (existingOrderPayment != null) {
+            throw new CustomException(PaymentErrorCode.TOSS_PAYMENT_CONFLICT);
+        }
+    }
+
+    private Payment saveOrderPayment(Payment payment) {
+        try {
+            return paymentRepository.save(payment);
+        } catch (DataIntegrityViolationException e) {
+            throw new CustomException(PaymentErrorCode.TOSS_PAYMENT_CONFLICT);
+        }
+    }
 }

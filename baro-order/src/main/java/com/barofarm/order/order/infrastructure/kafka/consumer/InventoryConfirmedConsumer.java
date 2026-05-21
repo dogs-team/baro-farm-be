@@ -9,6 +9,7 @@ import com.barofarm.order.order.domain.Order;
 import com.barofarm.order.order.domain.OrderOutboxEvent;
 import com.barofarm.order.order.domain.OrderOutboxEventRepository;
 import com.barofarm.order.order.domain.OrderRepository;
+import com.barofarm.order.order.domain.OrderStatus;
 import com.barofarm.order.order.exception.OrderErrorCode;
 import com.barofarm.order.order.infrastructure.kafka.consumer.dto.InventoryConfirmedEvent;
 import com.barofarm.order.order.infrastructure.kafka.producer.dto.OrderConfirmedEvent;
@@ -44,11 +45,16 @@ public class InventoryConfirmedConsumer {
     )
     @Transactional
     @TrackHistory(HistoryEventType.ORDER_CONFIRMED)
-    public void handle(InventoryConfirmedEvent event) throws JsonProcessingException {
+    public void handle(InventoryConfirmedEvent event) {
         UUID orderId = event.orderId();
         Order order = orderRepository.findById(orderId)
             .orElseThrow(() -> new CustomException(ORDER_NOT_FOUND));
-        order.markConfirmed(); // 주문 상태만 변경
+
+        if (order.getStatus() != OrderStatus.AWAITING_PAYMENT) {
+            return;
+        }
+
+        order.markConfirmed();
 
         try {
             OrderConfirmedEvent dto = OrderConfirmedEvent.of(event, order);

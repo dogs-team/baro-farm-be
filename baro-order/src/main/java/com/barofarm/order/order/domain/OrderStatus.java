@@ -19,6 +19,8 @@ public enum OrderStatus {
     // 주문 실패(결제/재고 등 도메인 실패)
     FAILED,
 
+    EXPIRED,
+
     // 배송 준비 중(환불 불가)
     PREPARING,
 
@@ -26,9 +28,7 @@ public enum OrderStatus {
     COMPLETED;
 
     public boolean isCancelable() {
-        return this == PENDING
-            || this == AWAITING_PAYMENT
-            || this == CONFIRMED;
+        return this == CONFIRMED;
     }
 
     public boolean isCanceled() {

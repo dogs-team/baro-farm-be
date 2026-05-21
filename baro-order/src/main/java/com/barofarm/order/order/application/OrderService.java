@@ -98,6 +98,14 @@ public class OrderService {
         order.markFailed();
     }
 
+    @Transactional
+    public void markExpired(UUID orderId) {
+        Order order = orderRepository.findById(orderId)
+            .orElseThrow(() -> new CustomException(ORDER_NOT_FOUND));
+
+        order.markExpired();
+    }
+
     @Transactional(readOnly = true)
     public ResponseDto<OrderDetailInfo> findOrderDetail(UUID userId, UUID orderId) {
         Order order = orderRepository.findById(orderId)
